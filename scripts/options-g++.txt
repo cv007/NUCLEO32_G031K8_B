@@ -1,0 +1,2 @@
+options="-Icmsis -std=c++17 -mcpu=cortex-m0plus -Os -funsigned-bitfields -fno-exceptions -fdata-sections -ffunction-sections -W -Wall"
+

@@ -1,0 +1,137 @@
+/*------------------------------------------------------------------------------
+ *      STM32G031K8
+ *----------------------------------------------------------------------------*/
+
+OUTPUT_FORMAT("elf32-littlearm", "elf32-littlearm", "elf32-littlearm")
+OUTPUT_ARCH(arm)
+SEARCH_DIR(.)
+
+MEMORY {
+    rom (rx)    : ORIGIN = 0x08000000, LENGTH = 64K
+    ram (rwx)   : ORIGIN = 0x20000000, LENGTH = 8K
+}
+
+/* adjust sizes as needed */
+STACK_SIZE = DEFINED(STACK_SIZE) ? STACK_SIZE : DEFINED(__stack_size__) ? __stack_size__ : 0x0200;
+HEAP_SIZE = DEFINED(HEAP_SIZE) ? HEAP_SIZE : DEFINED(__heap_size__) ? __heap_size__ : 0;
+
+/* set vector size for ram vector, 16 + 0-29 */
+VECTORS_SIZE = (16 + 30) *4;
+
+SECTIONS {
+    .text : {
+        . = ALIGN(4);
+        _sfixed = .;
+        KEEP(*(.vectors .vectors.*))
+        *(.text .text.* .gnu.linkonce.t.*)
+        *(.glue_7t) *(.glue_7)
+        *(.rodata .rodata* .gnu.linkonce.r.*)
+        *(.ARM.extab* .gnu.linkonce.armextab.*)
+
+        /* C/C++ constructors/destructors in both user code */
+        . = ALIGN(4);
+        KEEP(*(.init))
+        . = ALIGN(4);
+        __preinit_array_start = .;
+        KEEP (*(.preinit_array))
+        __preinit_array_end = .;
+
+        . = ALIGN(4);
+        __init_array_start = .;
+        KEEP (*(SORT(.init_array.*)))
+        KEEP (*(.init_array))
+        __init_array_end = .;
+
+        . = ALIGN(4);
+        KEEP (*crtbegin.o(.ctors))
+        KEEP (*(EXCLUDE_FILE (*crtend.o) .ctors))
+        KEEP (*(SORT(.ctors.*)))
+        KEEP (*crtend.o(.ctors))
+
+        . = ALIGN(4);
+        KEEP(*(.fini))
+
+        . = ALIGN(4);
+        __fini_array_start = .;
+        KEEP (*(.fini_array))
+        KEEP (*(SORT(.fini_array.*)))
+        __fini_array_end = .;
+
+        KEEP (*crtbegin.o(.dtors))
+        KEEP (*(EXCLUDE_FILE (*crtend.o) .dtors))
+        KEEP (*(SORT(.dtors.*)))
+        KEEP (*crtend.o(.dtors))
+
+        . = ALIGN(4);
+        _efixed = .;
+    } > rom
+
+    /* .ARM.exidx is sorted, so has to go in its own output section.  */
+    PROVIDE_HIDDEN (__exidx_start = .);
+    .ARM.exidx : {
+      *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+    } > rom
+    PROVIDE_HIDDEN (__exidx_end = .);
+
+    . = ALIGN(4);
+    _etext = .;
+
+    /* added to set aside ram for vector table at start of ram */
+    .ramvector : {
+        _sramvector = .;
+        . = . + VECTORS_SIZE;
+        _eramvector = .;
+    } > ram
+
+    /* initialized data */
+    .relocate : AT (_etext) {
+        . = ALIGN(4);
+        _srelocate = .;
+        *(.ramfunc .ramfunc.*);
+        *(.data .data.*);
+        . = ALIGN(4);
+        _erelocate = .;
+    } > ram
+
+    /* zeroed data */
+    .bss (NOLOAD) : {
+        . = ALIGN(4);
+        _sbss = . ;
+        _szero = .;
+        *(.bss .bss.*)
+        *(COMMON)
+        . = ALIGN(4);
+        _ebss = . ;
+        _ezero = .;
+    } > ram
+
+    /* noinit data */
+    .noinit (NOLOAD) : {
+        . = ALIGN(2);
+        _snoinit = .;
+        *(.noinit)
+        . = ALIGN(2);
+        _enoinit = .;
+    } > ram
+
+    /* heap */
+    .heap (NOLOAD): {
+        . = ALIGN(8);
+         _sheap = .;
+        end = .; /* sbrk uses end */
+        . = . + HEAP_SIZE;
+        . = ALIGN(8);
+        _eheap = .;
+    } > ram
+
+    /* stack */
+    .stack (NOLOAD): {
+        . = ALIGN(8);
+        _sstack = .;
+        . = ALIGN(8);
+    } > ram
+
+    /* check if enough stack space remains for what was requested */
+    _estack = ORIGIN(ram) + LENGTH(ram);
+    ASSERT( (_estack - _sstack) > STACK_SIZE, "linker- not enough stack space for STACK_SIZE")
+}
