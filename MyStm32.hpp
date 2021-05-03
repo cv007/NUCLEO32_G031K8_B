@@ -33,6 +33,9 @@ struct System {
 --------------------------------------------------------------*/
 #include "stm32g031k8.hpp"
 
+/*--------------------------------------------------------------
+    utilities (optionally bring in to global namespace)
+--------------------------------------------------------------*/
 #include "Util.hpp"
 using namespace UTIL;
 
