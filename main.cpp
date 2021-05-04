@@ -34,9 +34,6 @@ main            ()
 /*-------------------------------------------------------------
     main
 --------------------------------------------------------------*/
-//crude delay
-static void delay(volatile u32 n){ while(n--){} }
-
 //arrays of pins
 GpioPin switches[]{ //nucleo board labels D9-D12
     { GpioPin(board.D[12],LOWISON).mode(INPUT).pull(PULLUP) },
