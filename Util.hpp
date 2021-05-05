@@ -173,9 +173,9 @@ shuffle         (T (&arr)[N])
                 II static void 
 delayCycles     (volatile i32 n){ while(n -= CYCLES_PER_LOOP, n > 0){} }
                 II static void 
-delayMS         (u16 ms){ delayCycles(System::fcpuMHz*1000*ms); }
-                II static void 
 delayUS         (u16 us){ delayCycles(System::fcpuMHz*us); }
+                II static void 
+delayMS         (u16 ms){ delayUS( ms*1000 ); }
 
                 #pragma GCC pop_options
                 #undef CYCLES_PER_LOOP
