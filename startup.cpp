@@ -75,7 +75,7 @@ flashVectorT flashVector{ stackTop, {resetFunc, resetFunc, resetFunc} };
 delayCycles     (volatile i32 n) { while(n -= CYCLES_PER_LOOP, n>0){} }
 
                 IIA 
-delayMS         (u16 ms){ delayCycles(FCPU/1000*ms-1); }
+delayMS         (u16 ms){ delayCycles(FCPU/1000*ms-2); }
 
                 #pragma GCC pop_options
 
