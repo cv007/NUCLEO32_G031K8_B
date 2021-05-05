@@ -29,7 +29,7 @@ write           (const char c)
                 }
 
                 auto //default 16 sample rate
-baudReg         (u32 baud) { reg_.BRR = System::fcpu/baud; }
+baudReg         (u32 baud) { reg_.BRR = System::fcpuMHz*1000000/baud; }
 
                 auto
 txOn            () { reg_.CR1 or_eq 9; } //TE=1,UE=1

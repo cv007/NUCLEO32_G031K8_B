@@ -147,6 +147,7 @@ random64        (u32 min, u32 max)
                 SCA
 swap            (T& a, T& b) { T c(a); a=b; b=c; }
 
+
 /*-----------------------------------------------------------------------------
     shuffle an array of type T[N], randomly
 -----------------------------------------------------------------------------*/
@@ -160,6 +161,7 @@ shuffle         (T (&arr)[N])
                     }
                 }
 
+
 /*-----------------------------------------------------------------------------
     simple blocking delays
 -----------------------------------------------------------------------------*/
@@ -171,9 +173,9 @@ shuffle         (T (&arr)[N])
                 II static void 
 delayCycles     (volatile i32 n){ while(n -= CYCLES_PER_LOOP, n > 0){} }
                 II static void 
-delayMS         (u16 ms){ delayCycles(System::fcpu/1000*ms-1); }
+delayMS         (u16 ms){ delayCycles(System::fcpuMHz*1000*ms); }
                 II static void 
-delayUS         (u16 us){ delayCycles(System::fcpu/1000000*us-1); }
+delayUS         (u16 us){ delayCycles(System::fcpuMHz*us); }
 
                 #pragma GCC pop_options
                 #undef CYCLES_PER_LOOP
