@@ -42,7 +42,7 @@ static constexpr u32* stackTop          { &_estack };
 static volatile u32&  vtor              { *(reinterpret_cast<u32*>(0xE000ED08)) };
 
 //for delay functions
-static constexpr u32  FCPU              {16000000}; //16MHz at reset
+static constexpr u32  FCPU_MHZ          {16}; //16MHz at reset
 static constexpr u32  CYCLES_PER_LOOP   {4};
 
 /*-----------------------------------------------------------------------------
@@ -75,7 +75,7 @@ flashVectorT flashVector{ stackTop, {resetFunc, resetFunc, resetFunc} };
 delayCycles     (volatile i32 n) { while(n -= CYCLES_PER_LOOP, n>0){} }
 
                 IIA 
-delayMS         (u16 ms){ delayCycles(FCPU/1000*ms-2); }
+delayMS         (u16 ms){ delayCycles(FCPU_MHZ*1000*ms); }
 
                 #pragma GCC pop_options
 
