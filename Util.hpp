@@ -171,7 +171,7 @@ shuffle         (T (&arr)[N])
                 //simple blocking inline delays
                 #define CYCLES_PER_LOOP 4
                 II static void 
-delayCycles     (volatile i32 n){ while(n -= CYCLES_PER_LOOP, n > 0){} }
+delayCycles     (volatile i32 n){ while( n -= CYCLES_PER_LOOP, n >= CYCLES_PER_LOOP ){} }
                 II static void 
 delayUS         (u32 us){ delayCycles(System::cpuMHz*us); }
                 II static void 
