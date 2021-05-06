@@ -173,7 +173,7 @@ shuffle         (T (&arr)[N])
                 II static void 
 delayCycles     (volatile i32 n){ while(n -= CYCLES_PER_LOOP, n > 0){} }
                 II static void 
-delayUS         (u16 us){ delayCycles(System::fcpuMHz*us); }
+delayUS         (u32 us){ delayCycles(System::fcpuMHz*us); }
                 II static void 
 delayMS         (u16 ms){ delayUS( ms*1000 ); }
 
