@@ -25,7 +25,7 @@ using i64   = int64_t;
 struct System {
 
                 //default out of reset, HSI16
-                static inline u8 fcpuMHz{ 16 };
+                static inline u8 cpuMHz{ 16 };
 };
 
 /*--------------------------------------------------------------
