@@ -129,8 +129,8 @@ irqSwap         () -> void
                 volatile bool isAirq_;      //1=a, 0=b
                 volatile i32 count_;        //encoder count
                 //set min/max limit values to match count_ type/size
-                SCA COUNTMIN{ (i32)(1<<(sizeof(count_)*8-1)) }; //0x80000000
-                SCA COUNTMAX{ (i32)((u32)COUNTMIN-1) }; //0x7FFFFFFF
+                SCA COUNTMIN{ (i32)0x80000000 };
+                SCA COUNTMAX{ (i32)0x7FFFFFFF }; 
 
 };
 
