@@ -46,8 +46,14 @@ class Encoder {
 //-------------|
 
 Encoder         (PINS::PIN pina, PINS::PIN pinb)
-                : pinA_( GpioPin(pina).mode(PINS::INPUT).pull( PINS::PULLUP ) ),
-                  pinB_( GpioPin(pinb).mode(PINS::INPUT).pull( PINS::PULLUP ) )
+                : pinA_( GpioPin(pina)
+                        .mode(PINS::INPUT)
+                        .pull(PINS::PULLUP)
+                        .irqBothEdges() ),
+                  pinB_( GpioPin(pinb)
+                        .mode(PINS::INPUT)
+                        .pull(PINS::PULLUP)
+                        .irqBothEdges() )
                 {
                 irqSwap();
                 }
@@ -106,13 +112,13 @@ isr             ()
 irqSwap         () -> void
                 {
                 if( isAirq_ ) { //A->B
-                    pinA_.irqMode( PINS::IRQOFF );
-                    pinB_.irqMode( PINS::BOTHEDGES );
+                    pinA_.irqOff();
+                    pinB_.irqOn();
                     isAirq_ = false;
                     }
                 else { //B->A
-                    pinB_.irqMode( PINS::IRQOFF );
-                    pinA_.irqMode( PINS::BOTHEDGES );
+                    pinB_.irqOff();
+                    pinA_.irqOn();
                     isAirq_ = true;
                     }
                 }

@@ -138,58 +138,25 @@ altFunc         (PINS::ALTFUNC e)
                 return *this;
                 }
 
-                II GpioPin&
-irqMode         (PINS::IRQMODE e)
-                {
-                RCC->APBENR2 or_eq RCC_APBENR2_SYSCFGEN; //so can read EXTI_LINEx
-                EXTI->IMR1 and_eq compl pinmask_; //mask off
-
-                //set our port to use this pin irq
-                auto& r = EXTI->EXTICR[pin_/4];
-                auto bp = (pin_ bitand 3)*8; //0,8,16,24
-                auto bmset = port_<<bp;
-                auto bmclr = compl (0xFF<<bp);
-                r = (r bitand bmclr) bitor bmset;
-
-                //clear rising/falling selections
-                EXTI->RTSR1 and_eq compl pinmask_;
-                EXTI->FTSR1 and_eq compl pinmask_;
-                //all off
-
-                //enable rising and/or falling
-                if( e == PINS::RISING or e == PINS::BOTHEDGES ) {
-                    EXTI->RTSR1 or_eq pinmask_;
-                    }
-                if( e == PINS::FALLING or e == PINS::BOTHEDGES ) {
-                    EXTI->FTSR1 or_eq pinmask_;
-                    }
-
-                EXTI->RPR1 = pinmask_; //clear flags
-                EXTI->FPR1 = pinmask_;
-
-                if( e ) { //mask back on unless IRQOFF
-                    EXTI->IMR1 or_eq pinmask_;
-                    }
-
-                return *this;
-                }
 
                 //get rising flag, clear if set
                 II bool
 isRiseFlag      ()
                 {
-                bool tf = EXTI->RPR1 bitand pinmask_;
-                if( tf ) EXTI->RPR1 = pinmask_;
-                return tf;
+                auto bm =EXTI->RPR1 bitand pinmask_;
+                EXTI->RPR1 = bm;
+                return bm;
                 }
+
                 //get falling flag, clear if set
                 II bool
 isFallFlag      ()
                 {
-                bool tf = EXTI->FPR1 bitand pinmask_;
-                if( tf ) EXTI->FPR1 = pinmask_;
-                return tf;
+                auto bm =EXTI->FPR1 bitand pinmask_;
+                EXTI->FPR1 = bm;
+                return bm;
                 }
+
                 //get any flag, clear if set
                 II bool
 isFlag          ()
@@ -198,6 +165,81 @@ isFlag          ()
                 bool f = isFallFlag();
                 return r or f;
                 }
+
+                II GpioPin&
+irqOff          () 
+                { 
+                EXTI->IMR1 and_eq compl pinmask_;
+                return *this; 
+                }
+
+                II GpioPin&
+irqOn           () 
+                { 
+                RCC->APBENR2 or_eq RCC_APBENR2_SYSCFGEN; //so can read EXTI_LINEx
+                //set our port to use this pin irq
+                auto& r = EXTI->EXTICR[pin_/4];
+                auto bp = (pin_ bitand 3)*8; //0,8,16,24
+                auto bmset = port_<<bp;
+                auto bmclr = compl (0xFF<<bp);
+                r = (r bitand bmclr) bitor bmset;
+                isFlag(); //clear flags
+                EXTI->IMR1 or_eq pinmask_; 
+                return *this; 
+                } 
+
+                II GpioPin&
+irqNoEdges      () 
+                { 
+                EXTI->FTSR1 and_eq compl pinmask_; 
+                EXTI->RTSR1 and_eq compl pinmask_;
+                return *this; 
+                }
+
+                II GpioPin&
+irqRise         () 
+                { 
+                EXTI->FTSR1 and_eq compl pinmask_; 
+                EXTI->RTSR1 or_eq pinmask_; 
+                return *this; 
+                }
+
+                II GpioPin&
+irqFall         () 
+                { 
+                EXTI->RTSR1 and_eq compl pinmask_; 
+                EXTI->FTSR1 or_eq pinmask_; 
+                return *this; 
+                }
+
+                II GpioPin&
+irqBothEdges    () 
+                { 
+                EXTI->FTSR1 or_eq pinmask_; 
+                EXTI->RTSR1 or_eq pinmask_; 
+                return *this; 
+                }
+
+
+//                 II GpioPin&
+// irqMode         (PINS::IRQMODE e)
+//                 {
+
+//                 irqOff();
+
+//                 if( e == PINS::IRQOFF ) {
+//                     EXTI->RTSR1 and_eq compl pinmask_;
+//                     EXTI->FTSR1 and_eq compl pinmask_;
+//                     }
+//                 else if( e == PINS::RISING ) irqRise();
+//                 else if( e == PINS::FALLING ) irqFall();
+//                 else irqBothedges();
+
+//                 if( e ) irqOn(); //mask back on unless IRQOFF
+//                 return *this;
+//                 }
+
+
                 //get which IRQn_Type er belong to
                 II IRQn_Type
 irqN            ()
