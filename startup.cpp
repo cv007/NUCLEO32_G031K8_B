@@ -22,8 +22,8 @@ using flashVectorT = struct { u32* stackTop; void(*vfunc[3])(); };
     _sramvector is declared as an array as we need in array form to outsmart
     the compiler which will not let us cast _sramvector in a way so we can 
     set the stack/reset values seperately, so just set to a size of 3 so we
-    can access the first two, and use the assress of the third (_eramvector
-    rakes care of finding the end)
+    can access the first two, and use the address of the third (_eramvector
+    rakes care of finding the end when we init the vector values)
 -----------------------------------------------------------------------------*/
 //linker script symbols
 extern u32 _etext;              //end of text
