@@ -20,6 +20,8 @@ SPEED           { SPEED0, SPEED1, SPEED2, SPEED3 }; //VLOW to VHIGH
 ALTFUNC         { AF0, AF1, AF2, AF3, AF4, AF5, AF6, AF7 };
                 enum
 INVERT          { HIGHISON, LOWISON };
+                enum
+IRQMODE         { IRQOFF, RISING, FALLING, BOTHEDGES };
 
 };
 
@@ -107,27 +109,104 @@ outType         (PINS::OTYPE e)
                 II GpioPin&
 pull            (PINS::PULL e)
                 {
-                reg_.PUPDR = (reg_.PUPDR bitand compl (3<<(2*pin_))) bitor (e<<(2*pin_));
+                auto bp = 2*pin_;
+                auto bmclr = compl (3<<bp);
+                auto bmset = e<<bp;
+                reg_.PUPDR = (reg_.PUPDR bitand bmclr) bitor bmset;
                 return *this;
                 }
 
                 II GpioPin&
 speed           (PINS::SPEED e)
                 {
-                reg_.OSPEEDR = (reg_.OSPEEDR bitand compl (3<<(2*pin_))) bitor (e<<(2*pin_));
+                auto bp = 2*pin_;
+                auto bmclr = compl (3<<bp);
+                auto bmset = e<<bp;
+                reg_.OSPEEDR = (reg_.OSPEEDR bitand bmclr) bitor bmset;
                 return *this;
                 }
 
                 II GpioPin&
 altFunc         (PINS::ALTFUNC e)
                 {
-                auto& ptr = reg_.AFR[pin_>7 ? 1 : 0];
-                auto bm = compl (15<<(4*(pin_ bitand 7)));
-                auto bv = e<<(4*(pin_ bitand 7));
-                ptr = (ptr bitand bm) bitor bv;
+                auto& r = reg_.AFR[pin_>7 ? 1 : 0];
+                auto bp = 4*(pin_ bitand 7);
+                auto bmclr = compl (15<<bp);
+                auto bmset = e<<bp;
+                r = (r bitand bmclr) bitor bmset;
                 mode( PINS::ALTERNATE );
                 return *this;
                 }
+
+                II GpioPin&
+irqMode         (PINS::IRQMODE e)
+                {
+                RCC->APBENR2 or_eq RCC_APBENR2_SYSCFGEN; //so can read EXTI_LINEx
+                EXTI->IMR1 and_eq compl pinmask_; //mask off
+
+                //set our port to use this pin irq
+                auto& r = EXTI->EXTICR[pin_/4];
+                auto bp = (pin_ bitand 3)*8; //0,8,16,24
+                auto bmset = port_<<bp;
+                auto bmclr = compl (0xFF<<bp);
+                r = (r bitand bmclr) bitor bmset;
+
+                //clear rising/falling selections
+                EXTI->RTSR1 and_eq compl pinmask_;
+                EXTI->FTSR1 and_eq compl pinmask_;
+                //all off
+
+                //enable rising and/or falling
+                if( e == PINS::RISING or e == PINS::BOTHEDGES ) {
+                    EXTI->RTSR1 or_eq pinmask_;
+                    }
+                if( e == PINS::FALLING or e == PINS::BOTHEDGES ) {
+                    EXTI->FTSR1 or_eq pinmask_;
+                    }
+
+                EXTI->RPR1 = pinmask_; //clear flags
+                EXTI->FPR1 = pinmask_;
+
+                if( e ) { //mask back on unless IRQOFF
+                    EXTI->IMR1 or_eq pinmask_;
+                    }
+
+                return *this;
+                }
+
+                //get rising flag, clear if set
+                II bool
+isRiseFlag      ()
+                {
+                bool tf = EXTI->RPR1 bitand pinmask_;
+                if( tf ) EXTI->RPR1 = pinmask_;
+                return tf;
+                }
+                //get falling flag, clear if set
+                II bool
+isFallFlag      ()
+                {
+                bool tf = EXTI->FPR1 bitand pinmask_;
+                if( tf ) EXTI->FPR1 = pinmask_;
+                return tf;
+                }
+                //get any flag, clear if set
+                II bool
+isFlag          ()
+                {
+                bool r = isRiseFlag();
+                bool f = isFallFlag();
+                return r or f;
+                }
+                //get which IRQn_Type er belong to
+                II IRQn_Type
+irqN            ()
+                {
+                if( pin_ <= 1 ) return EXTI0_1_IRQn;
+                if( pin_ <= 3 ) return EXTI2_3_IRQn;
+                return EXTI4_15_IRQn;
+                }
+
 
                 II GpioPin&
 lock            () { GpioPort::lock(pinmask_); return *this; }

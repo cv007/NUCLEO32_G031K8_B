@@ -1,5 +1,5 @@
 //Util.hpp
-#pragma once 
+#pragma once
 
 #include "MyStm32.hpp"
 
@@ -7,7 +7,7 @@
 extern void* _sstack; //used in random16
 using vectorFuncT = void(*)();
 //linker symbol, vector table start, LPUART1_IRQn is last irq
-extern vectorFuncT _sramvector[16+LPUART1_IRQn+1]; 
+extern vectorFuncT _sramvector[16+LPUART1_IRQn+1];
 
 
 /*-----------------------------------------------------------------------------
@@ -49,6 +49,17 @@ irqDelete       (IRQn_Type n)
                 }
 
 /*-----------------------------------------------------------------------------
+    get current active isr number - convert 0 based value to IRQn_Type
+    not sure why is not in CMSIS, or maybe I cannot see it
+-----------------------------------------------------------------------------*/
+                inline auto
+irqActive       ()
+                {
+                return IRQn_Type((SCB->ICSR bitand SCB_ICSR_VECTACTIVE_Msk) - 16);
+                }
+
+
+/*-----------------------------------------------------------------------------
     use to temporarily disable interrupts for various reasons
     atomic access, etc.
     constructor saves PRIMASK bit 0, then interrupts disabled
@@ -67,8 +78,8 @@ class InterruptLock {
     public:
 //-------------|
 
-InterruptLock   () 
-                : status( __get_PRIMASK() ) 
+InterruptLock   ()
+                : status( __get_PRIMASK() )
                 { __disable_irq(); }
 
 ~InterruptLock  () { __set_PRIMASK(status); }
@@ -87,7 +98,7 @@ InterruptLock   ()
     u32 a[16];
     for( auto i = 0; i < arraySize(a); i++ ){}
 -----------------------------------------------------------------------------*/
-                template<typename T, unsigned N> 
+                template<typename T, unsigned N>
                 SCA
 arraySize       (T (&v)[N]) { return N; }
 
@@ -143,7 +154,7 @@ random64        (u32 min, u32 max)
 /*-----------------------------------------------------------------------------
     swap two vars of the same type
 -----------------------------------------------------------------------------*/
-                template <typename T> 
+                template <typename T>
                 SCA
 swap            (T& a, T& b) { T c(a); a=b; b=c; }
 
@@ -151,7 +162,7 @@ swap            (T& a, T& b) { T c(a); a=b; b=c; }
 /*-----------------------------------------------------------------------------
     shuffle an array of type T[N], randomly
 -----------------------------------------------------------------------------*/
-                template<typename T, int N> 
+                template<typename T, int N>
                 SCA
 shuffle         (T (&arr)[N])
                 {
@@ -170,11 +181,11 @@ shuffle         (T (&arr)[N])
 
                 //simple blocking inline delays
                 #define CYCLES_PER_LOOP 4
-                II static void 
-delayCycles     (volatile i32 n){ while( n -= CYCLES_PER_LOOP, n >= CYCLES_PER_LOOP ){} }
-                II static void 
+                II static void
+delayCycles     (volatile u32 n){ while( n -= CYCLES_PER_LOOP, n >= CYCLES_PER_LOOP ){} }
+                II static void
 delayUS         (u32 us){ delayCycles(System::cpuMHz*us); }
-                II static void 
+                II static void
 delayMS         (u16 ms){ delayUS( ms*1000 ); }
 
                 #pragma GCC pop_options
