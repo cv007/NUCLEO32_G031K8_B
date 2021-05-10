@@ -197,7 +197,7 @@ irqNoEdges      ()
                 }
 
                 II GpioPin&
-irqRise         () 
+irqRising       () 
                 { 
                 EXTI->FTSR1 and_eq compl pinmask_; 
                 EXTI->RTSR1 or_eq pinmask_; 
@@ -205,7 +205,7 @@ irqRise         ()
                 }
 
                 II GpioPin&
-irqFall         () 
+irqFalling      () 
                 { 
                 EXTI->RTSR1 and_eq compl pinmask_; 
                 EXTI->FTSR1 or_eq pinmask_; 
