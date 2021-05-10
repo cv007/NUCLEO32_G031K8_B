@@ -34,8 +34,44 @@ main            ()
 #endif
 
 
+//troubleshoot exception
+#if 0
+/*-------------------------------------------------------------
+    main
+        instances available fron headers-
+        board
+        uart
+--------------------------------------------------------------*/
+extern u32 _sdebugram;
+u32* debugRam{ &_sdebugram };
+
+                int
+main            ()
+                {
+                delayMS( 15000 );
+                uart.print("\r\n");
+                uart.print("   HFSR: 0x%08X\r\n", *(u32*)0xE000ED2C );
+                uart.print("   CFSR: 0x%08X\r\n", *(u32*)0xE000ED28 );
+                uart.print("   UFSR: 0x%08X\r\n", *(u32*)0xE000ED2A );
+
+                uart.print(" rccCSR: 0x%08X\r\n", RCC->CSR );
+                uart.print("scbICSR: 0x%08X\r\n", SCB->ICSR );
+                uart.print("   VTOR: 0x%08X\r\n", SCB->VTOR );
+                uart.print("\r\n");
+                for( auto i = 0; i < 32; i++ ) {
+                    uart.print("[%02u]: 0x%08X\r\n", i, debugRam[i] );
+                    }
+                while( true ){
+                    board.led.toggle();
+                    delayMS(200);
+                    }
+                }
+
+#endif
+
+
 //troubleshoot why no irq
-#if 0 
+#if 0
 /*-------------------------------------------------------------
     main
         instances available fron headers-

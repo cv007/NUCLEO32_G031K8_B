@@ -83,6 +83,13 @@ SECTIONS {
         _eramvector = .;
     } > ram
 
+    /* added to set aside ram for debug use */
+    .debugram : {
+        _sdebugram = .;
+        . = . + 32*4;
+        _edebugram = .;
+    } > ram
+
     /* initialized data */
     .relocate : AT (_etext) {
         . = ALIGN(4);

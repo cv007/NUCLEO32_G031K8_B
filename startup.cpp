@@ -27,7 +27,8 @@ using flashVectorT = struct { u32* stackTop; void(*vfunc[3])(); };
 -----------------------------------------------------------------------------*/
 //linker script symbols
 extern u32 _etext;              //end of text
-extern u32 _vectorsSize;
+extern u32 _sdebugram[32];      //ram set aside for debug use
+extern u32 _edebugram;
 extern u32 _sramvector[3];      //start of ram vector
 extern u32 _eramvector;
 extern u32 _srelocate;          //data (initialized)
@@ -38,6 +39,8 @@ extern u32 _estack;
 
 //setup linker symbols as u32 pointers (addresses), and nicer names
 static constexpr u32* dataFlashStart    { &_etext };
+static constexpr auto debugramStart     { &_sdebugram[0] };
+static constexpr auto debugramEnd       { &_edebugram };
 static constexpr auto ramvectorStart    { &_sramvector[0] };
 static constexpr u32* ramvectorEnd      { &_eramvector };
 static constexpr u32* dataStart         { &_srelocate };
@@ -46,8 +49,9 @@ static constexpr u32* bssStart          { &_szero };
 static constexpr u32* bssEnd            { &_ezero };
 static constexpr u32* stackTop          { &_estack };
 
-//SCB.VTOR (vector table offset)
+//SCB.VTOR (vector table offset), SCB.AIRCR (for swReset)
 static volatile u32&  vtor              { *(reinterpret_cast<u32*>(0xE000ED08)) };
+static volatile u32&  aircr             { *(reinterpret_cast<u32*>(0xE000ED0C)) };
 
 //for delay functions
 static constexpr u32  FCPU_MHZ          {16}; //16MHz at reset
@@ -70,7 +74,7 @@ static void errorFunc();
     section is KEEP in linker script, 'used' keeps compiler from complaining
 -----------------------------------------------------------------------------*/
 [[ using gnu : section(".vectors"), used ]]
-flashVectorT flashVector{ stackTop, {resetFunc, errorFunc, errorFunc} };
+flashVectorT flashVector{ stackTop, {resetFunc, errorFunc, errorFunc } };
 
 
 /*-----------------------------------------------------------------------------
@@ -94,18 +98,45 @@ setmem          (u32* s, u32* e, u32 v) { while(s < e) *s++ = v; }
                 IIA //start address, end address, values
 cpymem          (u32* s, u32* e, u32* v) { while(s < e) *s++ = *v++; }
 
+                //software reset
+                [[ using gnu : used, noreturn ]] static void
+swReset         () 
+                {
+                asm( "dsb 0xF":::"memory");
+                aircr = 0x05FA0004;
+                asm( "dsb 0xF":::"memory");
+                while( true ){}
+                }
 
-                //unhandled interrupt, or return from main
-                //do something here to debug, or to recover when no longer
-                //debugging (system reset, or something)
-                [[ using gnu : used, noreturn ]]
-                static void
-errorFunc       () { while(true); }
+                //unhandled interrupt, exception, or return from main
+                [[ using gnu : used, noreturn ]] static void
+errorFunc       () 
+                { 
+                //get main stack pointer, get the 8 stack entries which
+                //were possibly set by exception (r0-r3,r12,lr,pc,xpsr)
+                //and copy to debug ram
+                u32* msp;
+                asm( "MRS %0, msp" : "=r" (msp) );
+                for( auto i = 0; i < 8; i++ ) {
+                    debugramStart[i] = msp[i];
+                    }
+                //and software reset
+                swReset();
+                }
 
 
                 IIA
 initRam         ()
                 {
+                //if last debug ram not set to specific value, clear ram
+                if( debugramStart[31] != 0x12345678 ) {
+                    setmem( debugramStart, debugramEnd, 0 );
+                    debugramStart[31] = 0x12345678;
+                    }
+                //else inc reset count, and leave values as-is
+                //(may be exception data stored)
+                else debugramStart[30]++;
+
                 //set all ram vectors to default function (errorFunc)
                 setmem( &ramvectorStart[2], ramvectorEnd, (u32)errorFunc );
                 //set stack/reset in case someone starts using vtor to read these
