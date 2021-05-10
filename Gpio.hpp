@@ -141,7 +141,7 @@ altFunc         (PINS::ALTFUNC e)
 
                 //get rising flag, clear if set
                 II bool
-isRiseFlag      ()
+isFlagRise      ()
                 {
                 auto bm =EXTI->RPR1 bitand pinmask_;
                 EXTI->RPR1 = bm;
@@ -150,7 +150,7 @@ isRiseFlag      ()
 
                 //get falling flag, clear if set
                 II bool
-isFallFlag      ()
+isFlagFall      ()
                 {
                 auto bm =EXTI->FPR1 bitand pinmask_;
                 EXTI->FPR1 = bm;
@@ -161,8 +161,8 @@ isFallFlag      ()
                 II bool
 isFlag          ()
                 {
-                bool r = isRiseFlag();
-                bool f = isFallFlag();
+                bool r = isFlagRise();
+                bool f = isFlagFall();
                 return r or f;
                 }
 
