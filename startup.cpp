@@ -19,39 +19,45 @@ using flashVectorT = struct { u32* stackTop; void(*vfunc[3])(); };
     first location in ram so is aligned properly, _sramvector/_eramvector
     values added so we can init ram vector table in this startup code
 
-    _sramvector is declared as an array as we need in array form to outsmart
-    the compiler which will not let us cast _sramvector in a way so we can 
-    set the stack/reset values seperately, so just set to a size of 3 so we
-    can access the first two, and use the address of the third (_eramvector
-    rakes care of finding the end when we init the vector values)
+    symbols declared as an array as we need in array form to outsmart
+    the compiler (-Warray_bounds) which will not let us cast _sramvector in 
+    a way so we can set the stack/reset values seperately, so just set to a
+    size of 3 so we can access the first two, and use the address of the 
+    third (_eramvector rakes care of finding the end when we init the vector
+    values)
+
+    the array form also works for other symbols where only the address is 
+    used, and the array of 1 is a pointer but then does not later require
+    the use of &, or if declaring the extern as a pointer we don't end up
+    using as a pointer to a pointer
 -----------------------------------------------------------------------------*/
 //linker script symbols
-extern u32 _etext;              //end of text
-extern u32 _sdebugram[32];      //ram set aside for debug use
-extern u32 _edebugram;
-extern u32 _sramvector[3];      //start of ram vector
-extern u32 _eramvector;
-extern u32 _srelocate;          //data (initialized)
-extern u32 _erelocate;
-extern u32 _szero;              //bss (zeroed)
-extern u32 _ezero;
-extern u32 _estack;
+extern u32 _etext       [1];    //end of text
+extern u32 _sramdebug   [32];   //ram set aside for debug use
+extern u32 _eramdebug   [1];
+extern u32 _sramvector  [3];    //start of ram vector
+extern u32 _eramvector  [1];
+extern u32 _srelocate   [1];    //data (initialized)
+extern u32 _erelocate   [1];
+extern u32 _szero       [1];    //bss (zeroed)
+extern u32 _ezero       [1];
+extern u32 _estack      [1];
 
 //setup linker symbols as u32 pointers (addresses), and nicer names
-static constexpr u32* dataFlashStart    { &_etext };
-static constexpr auto debugramStart     { &_sdebugram[0] };
-static constexpr auto debugramEnd       { &_edebugram };
-static constexpr auto ramvectorStart    { &_sramvector[0] };
-static constexpr u32* ramvectorEnd      { &_eramvector };
-static constexpr u32* dataStart         { &_srelocate };
-static constexpr u32* dataEnd           { &_erelocate };
-static constexpr u32* bssStart          { &_szero };
-static constexpr u32* bssEnd            { &_ezero };
-static constexpr u32* stackTop          { &_estack };
+static constexpr auto dataFlashStart    { _etext };
+static constexpr auto debugramStart     { _sramdebug };
+static constexpr auto debugramEnd       { _eramdebug };
+static constexpr auto ramvectorStart    { _sramvector };
+static constexpr auto ramvectorEnd      { _eramvector };
+static constexpr auto dataStart         { _srelocate };
+static constexpr auto dataEnd           { _erelocate };
+static constexpr auto bssStart          { _szero };
+static constexpr auto bssEnd            { _ezero };
+static constexpr auto stackTop          { _estack };
 
 //SCB.VTOR (vector table offset), SCB.AIRCR (for swReset)
-static volatile u32&  vtor              { *(reinterpret_cast<u32*>(0xE000ED08)) };
-static volatile u32&  aircr             { *(reinterpret_cast<u32*>(0xE000ED0C)) };
+static volatile u32&  VTOR              { *(u32*)0xE000ED08 };
+static volatile u32&  AIRCR             { *(u32*)0xE000ED0C };
 
 //for delay functions
 static constexpr u32  FCPU_MHZ          {16}; //16MHz at reset
@@ -82,28 +88,25 @@ flashVectorT flashVector{ stackTop, {resetFunc, errorFunc, errorFunc } };
 -----------------------------------------------------------------------------*/
                 #pragma GCC push_options
                 #pragma GCC optimize ("-Os")
-
                 IIA
 delayCycles     (volatile u32 n) { while( n -= CYCLES_PER_LOOP, n>CYCLES_PER_LOOP ){} }
-
                 IIA 
 delayMS         (u16 ms){ delayCycles(FCPU_MHZ*1000*ms); }
-
                 #pragma GCC pop_options
 
 
                 IIA //start address, end address, value
 setmem          (u32* s, u32* e, u32 v) { while(s < e) *s++ = v; }
-
                 IIA //start address, end address, values
 cpymem          (u32* s, u32* e, u32* v) { while(s < e) *s++ = *v++; }
+
 
                 //software reset
                 [[ using gnu : used, noreturn ]] static void
 swReset         () 
                 {
                 asm( "dsb 0xF":::"memory");
-                aircr = 0x05FA0004;
+                AIRCR = 0x05FA0004;
                 asm( "dsb 0xF":::"memory");
                 while( true ){}
                 }
@@ -120,42 +123,60 @@ errorFunc       ()
                 for( auto i = 0; i < 8; i++ ) {
                     debugramStart[i] = msp[i];
                     }
-                //and software reset
+                //then software reset
                 swReset();
                 }
 
-
                 IIA
-initRam         ()
+initRamDebug    ()
                 {
-                //if last debug ram not set to specific value, clear ram
+                //if last debug ram not set to key value, 
+                //clear debug ram and set to key value
                 if( debugramStart[31] != 0x12345678 ) {
                     setmem( debugramStart, debugramEnd, 0 );
                     debugramStart[31] = 0x12345678;
                     }
-                //else inc reset count, and leave values as-is
-                //(may be exception data stored)
+                //else inc reset count, and leave debug ram as-is
+                //(may be exception data stored we want to see later)
                 else debugramStart[30]++;
+                }
 
+                IIA
+initRamVectors  ()
+                {
                 //set all ram vectors to default function (errorFunc)
                 setmem( &ramvectorStart[2], ramvectorEnd, (u32)errorFunc );
-                //set stack/reset in case someone starts using vtor to read these
+                //set stack/reset in case code uses vtor to read these values
+                //(they are in flash, so should rad from there if needed, but...)
                 ramvectorStart[0] = (u32)stackTop;
                 ramvectorStart[1] = (u32)resetFunc;
                 //move vectors to ram
-                vtor = (u32)ramvectorStart;
+                VTOR = (u32)ramvectorStart;
+                }
+
+                IIA
+initRamData     ()
+                {
                 //init data from flash
                 cpymem( dataStart, dataEnd, dataFlashStart );
                 //clear bss
                 setmem( bssStart, bssEnd, 0 );
                 }
 
+                IIA
+initRam         ()
+                {
+                initRamDebug();
+                initRamVectors();
+                initRamData();
+                }
+
                 [[ using gnu : used, noreturn ]]
                 static void
 resetFunc       ()
                 {
-                delayMS(5000);          //time to allow swd hot-plug
-                initRam();              //ram vectors, normal data/bss init               
+                delayMS(5000);          //allow time to allow swd hot-plug
+                initRam();              //ram vectors, normal data/bss init, etc.               
                 __libc_init_array();    //libc init, c++ constructors, etc.
 
                 //C++ will not allow using main with pendatic on, so disable pedantic
@@ -166,5 +187,4 @@ resetFunc       ()
 
                 //should not return from main, so treat as an error
                 errorFunc();
-
                 }

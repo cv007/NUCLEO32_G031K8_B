@@ -84,10 +84,10 @@ SECTIONS {
     } > ram
 
     /* added to set aside ram for debug use */
-    .debugram : {
-        _sdebugram = .;
+    .ramdebug : {
+        _sramdebug = .;
         . = . + 32*4;
-        _edebugram = .;
+        _eramdebug = .;
     } > ram
 
     /* initialized data */
