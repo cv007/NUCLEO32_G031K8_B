@@ -83,7 +83,7 @@ SECTIONS {
         _eramvector = .;
     } > ram
 
-    /* added to set aside ram for debug use */
+    /* added to set aside ram at fixed address for debug use */
     .ramdebug : {
         _sramdebug = .;
         . = . + 32*4;
