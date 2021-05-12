@@ -50,8 +50,8 @@ static constexpr auto bssEnd            { _ezero };
 static constexpr auto stackTop          { _estack };
 
 //SCB.VTOR (vector table offset), SCB.AIRCR (for swReset)
-static volatile u32&  VTOR              { *(u32*)0xE000ED08 };
-static volatile u32&  AIRCR             { *(u32*)0xE000ED0C };
+static volatile auto& VTOR              { *(volatile u32*)0xE000ED08 };
+static volatile auto& AIRCR             { *(volatile u32*)0xE000ED0C };
 
 //for delay functions
 static constexpr u32  FCPU_MHZ          {16}; //16MHz at reset
