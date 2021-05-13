@@ -19,11 +19,13 @@ using flashVectorT = struct { u32* stackTop; void(*vfunc[3])(); };
     first location in ram so is aligned properly, _sramvector/_eramvector
     values added so we can init ram vector table in this startup code
 
+    .debugram section added to linker script so we can have some ram at a 
+    known/fixed location to put debug info in when needed ( like for 
+    exceptions)
+
     symbols declared as an array as it seems the most flexible and easy
-    to deal with- prevents array-bounds error if we want to use a specific
-    array member (ramVectorStart[1]), eliminates the need to use &, and
-    prevents from getting into pointers to pointers by mistake if we try to
-    make these symbols u32*
+    to deal with (can be treated as a pointer or array, and we get its
+    address without & and can use as an array without array-bounds warnings)
 -----------------------------------------------------------------------------*/
 //linker script symbols
 extern u32 _etext       [];     //end of text
