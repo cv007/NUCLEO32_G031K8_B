@@ -62,8 +62,9 @@ static constexpr u32  CYCLES_PER_LOOP   {4};
 -----------------------------------------------------------------------------*/
 int main();
 static void resetFunc();
-extern "C" void __libc_init_array();
 static void errorFunc();
+extern "C" void __libc_init_array();
+
 
 /*-----------------------------------------------------------------------------
     reset vector block, 4 words -
@@ -83,7 +84,7 @@ flashVectorT flashVector{ stackTop, {resetFunc, errorFunc, errorFunc } };
                 #pragma GCC push_options
                 #pragma GCC optimize ("-Os")
                 IIA
-delayCycles     (volatile u32 n) { while( n -= CYCLES_PER_LOOP, n>CYCLES_PER_LOOP ){} }
+delayCycles     (volatile u32 n) { while( n -= CYCLES_PER_LOOP, n >= CYCLES_PER_LOOP ){} }
                 IIA 
 delayMS         (u16 ms){ delayCycles(FCPU_MHZ*1000*ms); }
                 #pragma GCC pop_options
@@ -113,10 +114,9 @@ errorFunc       ()
                 //were possibly set by exception (r0-r3,r12,lr,pc,xpsr)
                 //and copy to debug ram
                 u32* msp;
+                u32* ram = debugramStart;
                 asm( "MRS %0, msp" : "=r" (msp) );
-                for( auto i = 0; i < 8; i++ ) {
-                    debugramStart[i] = msp[i];
-                    }
+                for( auto i = 0; i < 8; i++ ) *ram++ = *msp++;
                 //other data can be saved if wanted (22 more u32's available)
                 //then software reset
                 swReset();
@@ -127,13 +127,13 @@ initRamDebug    ()
                 {
                 //if last debug ram not set to key value, 
                 //clear debug ram and set to key value
-                if( debugramStart[31] != 0x12345678 ) {
+                if( debugramEnd[-1] != 0x12345678 ) {
                     setmem( debugramStart, debugramEnd, 0 );
-                    debugramStart[31] = 0x12345678;
+                    debugramEnd[-1] = 0x12345678;
                     }
                 //else inc reset count, and leave debug ram as-is
                 //(may be exception data stored we want to see later)
-                else debugramStart[30]++;
+                else debugramEnd[-2]++;
                 }
 
                 IIA
