@@ -21,11 +21,12 @@ struct Uart : Printer {
 isTxFull        (){ return (reg_.ISR bitand (1<<7)) == 0; }
 
                 //blocking
-                virtual void
+                virtual bool
 write           (const char c)
                 {
                 while( isTxFull() ){}
                 reg_.TDR = c;
+                return true;
                 }
 
                 auto //default 16 sample rate
