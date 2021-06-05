@@ -9,7 +9,11 @@
 
 /*=============================================================
     Printer
-    class to inherit for 'printing' via virtual write function
+    class to inherit for printf style 'printing'
+    via virtual write function which has a signature of-
+        bool write(const char)
+    write return value is false if there is a problem and
+    need to abort
 =============================================================*/
 class Printer {
 
@@ -17,6 +21,8 @@ class Printer {
     private:
 //-------------|
 
+                //set buffer size as needed,
+                //will be allocated on the stack
                 static constexpr auto bufsiz_{ 128 };
 
                 //returns true if ok, false if a problem
@@ -34,7 +40,6 @@ write           (const char c) = 0;
                 //  < bufsiz_ is complete output
 
                 //blocking on underlying hardware or software buffer,
-                //using sprintf to keep simple
                 int
 print           (const char* fmt, ...)
                 {
