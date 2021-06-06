@@ -23,7 +23,10 @@ main            ()
                 while( true ) {
                     if( lastc != encoder1.count() ) {
                         lastc = encoder1.count();
-                        uart.print("encoder1: %d\r\n", lastc );                    
+                        //uart.print("{@Fgreen}encoder1:{@Fwhite} {d}  {b01}{N}", lastc );
+                        uart.print( "{@Fgreen}encoder1: ");
+                        if( lastc >= 0 ) uart.print( "{@Fwhite}" ); else uart.print( "{@Forange}" );
+                        uart.print( "{d}  {b01}{N}", lastc );
                         board.led.toggle();
                         delayMS(5);
                         board.led.toggle();
@@ -49,17 +52,17 @@ u32* debugRam{ &_sdebugram };
 main            ()
                 {
                 delayMS( 15000 );
-                uart.print("\r\n");
-                uart.print("   HFSR: 0x%08X\r\n", *(u32*)0xE000ED2C );
-                uart.print("   CFSR: 0x%08X\r\n", *(u32*)0xE000ED28 );
-                uart.print("   UFSR: 0x%08X\r\n", *(u32*)0xE000ED2A );
+                uart.print("{N");
+                uart.print("   HFSR: 0x{X08}{N}", *(u32*)0xE000ED2C );
+                uart.print("   CFSR: 0x{X08}{N}", *(u32*)0xE000ED28 );
+                uart.print("   UFSR: 0x{X08}{N}", *(u32*)0xE000ED2A );
 
-                uart.print(" rccCSR: 0x%08X\r\n", RCC->CSR );
-                uart.print("scbICSR: 0x%08X\r\n", SCB->ICSR );
-                uart.print("   VTOR: 0x%08X\r\n", SCB->VTOR );
-                uart.print("\r\n");
+                uart.print(" rccCSR: 0x{X08}{N}", RCC->CSR );
+                uart.print("scbICSR: 0x{X08}{N}", SCB->ICSR );
+                uart.print("   VTOR: 0x{X08}{N}", SCB->VTOR );
+                uart.print("{N}");
                 for( auto i = 0; i < 32; i++ ) {
-                    uart.print("[%02u]: 0x%08X\r\n", i, debugRam[i] );
+                    uart.print("[{u02}]: 0x{X08}{N}", i, debugRam[i] );
                     }
                 while( true ){
                     board.led.toggle();
@@ -93,38 +96,38 @@ main            ()
                 // while(1){ board.led.on( sw.isOn() ); }
 
                 //set irq function for sw irq
-                irqFunction( 
+                irqFunction(
                     EXTI4_15_IRQn,
-                    [](){ 
+                    [](){
                         sw.isFallFlag(); //reading also clears flag
                         //stay here, show we are in isr
-                        while(1){ 
-                            board.led.toggle(); 
+                        while(1){
+                            board.led.toggle();
                             delayMS(100);
                             }
-                    } 
+                    }
                 );
 
                 auto count = 0;
                 while( true ){
                     delayMS( 5000 );
-                    uart.print("  count: %d\r\n", count++ );
-                    uart.print("  RTSR1: 0x%08X  %s\r\n", EXTI->RTSR1, printBin32(EXTI->RTSR1) );
-                    uart.print("  FTSR1: 0x%08X  %s\r\n", EXTI->FTSR1, printBin32(EXTI->FTSR1)  );
-                    uart.print("   RPR1: 0x%08X  %s\r\n", EXTI->RPR1, printBin32(EXTI->RPR1)  );
-                    uart.print("   FPR1: 0x%08X  %s\r\n", EXTI->FPR1, printBin32(EXTI->FPR1)  );
-                    uart.print(" EXTICR: 0x%08X  %s\r\n", EXTI->EXTICR[0], printBin32(EXTI->EXTICR[0])  );
-                    uart.print("       : 0x%08X  %s\r\n", EXTI->EXTICR[1], printBin32(EXTI->EXTICR[1])  );
-                    uart.print("       : 0x%08X  %s\r\n", EXTI->EXTICR[2], printBin32(EXTI->EXTICR[2])  );
-                    uart.print("       : 0x%08X  %s\r\n", EXTI->EXTICR[3], printBin32(EXTI->EXTICR[3])  );
-                    uart.print("   IMR1: 0x%08X  %s\r\n", EXTI->IMR1, printBin32(EXTI->IMR1)  );
-                    uart.print("   EMR1: 0x%08X  %s\r\n", EXTI->EMR1, printBin32(EXTI->EMR1)  );
-                    uart.print("   ISER: 0x%08X  %s\r\n", NVIC->ISER[0U], printBin32(NVIC->ISER[0U])  );
-                    uart.print("   ISPR: 0x%08X  %s\r\n", NVIC->ISPR[0U], printBin32(NVIC->ISPR[0U])  );
-                    uart.print("scbICSR: 0x%08X  %s\r\n", SCB->ICSR, printBin32(SCB->ICSR)  );
-                    uart.print("ITLINE7: 0x%08X  %s\r\n", SYSCFG->IT_LINE_SR[7], printBin32(SYSCFG->IT_LINE_SR[7])  );
-                    uart.print("   VTOR: 0x%08X\r\n", SCB->VTOR );
-                    uart.print("   [23]: 0x%08X\r\n", ((u32*)(SCB->VTOR))[23] );
+                    uart.print("  count: {}{N}", count++ );
+                    uart.print("  RTSR1: 0x{X08}  {b}{N}", EXTI->RTSR1 );
+                    uart.print("  FTSR1: 0x{X08}  {b}{N}", EXTI->FTSR1 );
+                    uart.print("   RPR1: 0x{X08}  {b}{N}", EXTI->RPR1 );
+                    uart.print("   FPR1: 0x{X08}  {b}{N}", EXTI->FPR1 );
+                    uart.print(" EXTICR: 0x{X08}  {b}{N}", EXTI->EXTICR[0] );
+                    uart.print("       : 0x{X08}  {b}{N}", EXTI->EXTICR[1] );
+                    uart.print("       : 0x{X08}  {b}{N}", EXTI->EXTICR[2] );
+                    uart.print("       : 0x{X08}  {b}{N}", EXTI->EXTICR[3] );
+                    uart.print("   IMR1: 0x{X08}  {b}{N}", EXTI->IMR1 );
+                    uart.print("   EMR1: 0x{X08}  {b}{N}", EXTI->EMR1 );
+                    uart.print("   ISER: 0x{X08}  {b}{N}", NVIC->ISER[0U] );
+                    uart.print("   ISPR: 0x{X08}  {b}{N}", NVIC->ISPR[0U] );
+                    uart.print("scbICSR: 0x{X08}  {b}{N}", SCB->ICSR );
+                    uart.print("ITLINE7: 0x{X08}  {b}{N}", SYSCFG->IT_LINE_SR[7] );
+                    uart.print("   VTOR: 0x{X08}{N}", SCB->VTOR );
+                    uart.print("   [23]: 0x{X08}{N}", ((u32*)(SCB->VTOR))[23] );
 
                     //startup.cpp will store scbICSR value first thing in reset function
                     //and the value should be 0, but is 3 after programming (exception irq is active)
@@ -133,8 +136,8 @@ main            ()
 
                     //since we are in an exception in these cases, no irq even though all other
                     //registers indicate everything is setup correctly
-                    uart.print("   [01]: 0x%08X\r\n", ((u32*)(SCB->VTOR))[01] ); 
-                    uart.print("\r\n");
+                    uart.print("   [01]: 0x{X08}{N}", ((u32*)(SCB->VTOR))[01] );
+                    uart.print("{N}");
                     }
 
                 }
@@ -155,7 +158,7 @@ GpioPin switches[]{ //nucleo board labels D9-D12
     { GpioPin(board.D[12],LOWISON).mode(INPUT).pull(PULLUP) },
     { GpioPin(board.D[11],LOWISON).mode(INPUT).pull(PULLUP) },
     { GpioPin(board.D[10],LOWISON).mode(INPUT).pull(PULLUP) },
-    { GpioPin(board.D[9],LOWISON).mode(INPUT).pull(PULLUP) } 
+    { GpioPin(board.D[9],LOWISON).mode(INPUT).pull(PULLUP) }
 };
 
                 bool
@@ -179,9 +182,9 @@ printInfo       (u32 swv, u32 t)
                 {
                 uart.print("switches: ");
                 for( auto i = 0; i < arraySize(switches); i++, swv >>= 1 ) {
-                    uart.print( "%u ", swv & 1 );
+                    uart.print( "{u} ", swv & 1 );
                     }
-                uart.print( " delay: %u\r\n", t );
+                uart.print( " delay: {u}{N}", t );
                 }
 
                 int
