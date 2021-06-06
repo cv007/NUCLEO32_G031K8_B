@@ -131,6 +131,7 @@ markup          (const char* fmt)
         0 = optional '0' (leading 0's on)
         n = optional '1'-'9' (max number of chars to print)
     {N}, print newline, which can set set with .setNewline
+    {@ansi}, markup codes for ansi- see Markup class
 
                                 0,n optional  default value for n
     'd' = signed integer        {d0n}           10
@@ -183,9 +184,9 @@ class Printer : Markup {
                 char NL_[3]     { "\r\n" }; //newline string, can change via setNewline
                 int  count_     { 0 };      //return number of chars printed
                 bool error_     { false };  //store any errors along the way
-                char optionT_   { 'd' };    //specified type ('d','x','X','u','b')
+                char optionT_   { 'd' };    //specified type ('d','x','X','u','b','c')
                 bool optionLZ_  { false };  //leading 0's (set by '0')
-                char optionW_   { 8 };      //number of chars to print ('1'-'9')
+                char optionW_   { 8 };      //max number of chars to print ('1'-'9')
                 bool markup_    { true };   //ansi markup enabled
 
                 //helper write, so we can also inc count_
@@ -204,16 +205,16 @@ writeNL         () { writeStr( NL_ ); }
                 void
 writeV          (int v)
                 {
-                auto w = 32; //max width (assuming 'b')
-                bool uc = false; //uppercase? (for 'x', 'X')
-                unsigned vu = (unsigned)v; //use unsigned value
+                auto w = 32;                //max width (assuming 'b')
+                bool uc = false;            //uppercase? (for 'x', 'X')
+                unsigned vu = (unsigned)v;  //use unsigned value
                 switch( optionT_ ) {
                     case 'c':
                         write_( vu bitand 0xFF );
                         break;
                     case 'b': {
-                        if( optionW_ <= 4 ) optionW_ = optionW_*8; //1-4->8,16,24,32
-                        else optionW_ = 32;
+                        //1-4 -> 8,16,24,32
+                        optionW_ = optionW_ <= 4 ? optionW_*8 : 32;
                         bool not0 = optionLZ_;
                         while( w-- ){
                             auto c = vu bitand 0x80000000 ? '1' : '0';
@@ -278,6 +279,7 @@ parseOptions    (const char* fmt){
                 //{d|x|X|u|b|c
                 if( *fmt < '0' or (*fmt > '9') ) optionT_ = *fmt++;
                 //set default max widths if not later specified
+                //(b is taken care of in writeV)
                 optionW_ = (optionT_ == 'd' or optionT_ == 'u' ? 10 : 8);
                 //{d|x|X|u|b|c 0 1-9
                 if( *fmt == '0' ){ optionLZ_ = true; fmt++; }
@@ -324,7 +326,7 @@ print           (const char* fmt, int v, Ts...ts )
                 return print( ts... );
                 }
 
-                //string w/no data (can still use {N}, all other {} ignored)
+                //string w/no data ( can still use {N}, {@ansi} )
                 int
 print           (const char* fmt)
                 {
@@ -332,8 +334,7 @@ print           (const char* fmt)
                     while( *fmt != '{' and *fmt ) write_( *fmt++ );
                     if( not *fmt ) break;
                     //{
-                    fmt++;
-                    parseOptions( fmt );
+                    parseOptions( ++fmt );
                     //}
                     while( *fmt++ != '}' ){}
                     }
@@ -350,8 +351,7 @@ print           (const char* fmt, const char* str, Ts...ts)
                     while( *fmt != '{' and *fmt ) write_( *fmt++ );
                     if( not *fmt ) break;
                     //{
-                    fmt++;
-                    if( parseOptions(fmt) ) {
+                    if( parseOptions(++fmt) ) {
                         writeStr( str );
                         written = true;
                         }
@@ -384,7 +384,7 @@ markupOff       (){ markup_ = false; }
 
 
 
-#if 0 //original snprintf based version
+#if 0 //original snprintf based version, was about 1.5K > above version without markup feature
 #include <cstdio>
 class Printer {
 
