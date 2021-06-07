@@ -125,7 +125,12 @@ markup          (const char* fmt)
         bool write(const char)
         write return value is false if there is an error
 
-    will add options as needed
+    not a big fan of cout style, but it does make the creation
+    of the Printer class more straight forward as the compiler
+    can take on some of the work and eliminate the need for
+    more type options
+
+
 
     optional formatting is string contained in {}
 
@@ -141,6 +146,9 @@ markup          (const char* fmt)
     'X' = hex uppercase         {X0n}           8
     'b' = binary (0,1)          {b0n}           8  (n 1-4 -> 8,16,24,36)
 
+    all options are reset after each use of <<
+
+
 
     examples-
         //simple string,
@@ -150,7 +158,8 @@ markup          (const char* fmt)
         int v = -123;
 
         //print v, no leading 0's, no max limit of chars
-        dev << v; //-> "-123"
+        //also reset count/error via .start()
+        dev.start() << v; //-> "-123"
 
         //print v in unsigned, no leading 0's, no max limit of chars
         dev << (u32)v << endl; //-> "4294967173\r\n"
@@ -189,7 +198,7 @@ class Printer : protected Markup {
                 bool error_     { false };  //store any errors along the way
                 char optionT_   { 0 };      //specified type ('x','X','b')
                 bool optionLZ_  { false };  //leading 0's (set by '0')
-                char optionW_   { 8 };      //number of chars to print ('1'-'9')
+                char optionW_   { 0 };      //number of chars to print ('1'-'9')
                 bool markup_    { true };   //ansi markup enable
 
                 //helper write, so we can also inc count
@@ -204,40 +213,6 @@ writeStr        (const char* str)
                 void
 writeNL         () { writeStr( NL_ ); }
 
-                Printer&
-printBin        (u32 vu)
-                {
-                auto w = 32; //max char width of bits
-                if( optionW_ >= 1 and optionW_ <= 4 ) optionW_ = optionW_*8; //bytes->bits 8,16,24,36
-                else optionW_ = 32; //assume want all bits (if optionLZ_ is on)
-                bool not0 = optionLZ_;
-                while( w-- ){
-                    auto c = vu bitand 0x80000000 ? '1' : '0';
-                    if( c == '1' or w == 0 ) not0 = true;
-                    if( (w < optionW_) and not0 ) write_( c );
-                    vu <<= 1;
-                    }
-                resetOptions();
-                return *this;
-                }
-
-                //formatting function
-                Printer&
-printHex        (u32 vu)
-                {
-                auto w = 8; //max width
-                bool uc = (optionT_ == 'X'); //uppercase needed?
-                bool not0 = optionLZ_;
-                while( w-- ){
-                    auto c = hexTable[(vu >> 28) bitand 0xF];
-                    if( c != '0' or w == 0 ) not0 = true;
-                    if( c >= 'a' and uc ) c and_eq compl (1<<5);
-                    if( (w < optionW_) and not0 ) write_( c );
-                    vu <<= 4;
-                    }
-                resetOptions();
-                return *this;
-                }
 
                 //parse options inside {}
                 void
@@ -255,10 +230,8 @@ parseOptions    (const char* fmt){
                     markup( ++fmt );
                     return;
                     }
-                //{x|X|b (will store anything not 0-9 into optionT_)
-                if( *fmt < '0' or (*fmt > '9') ) optionT_ = *fmt++;
-                //change default max width for x,X, and b from 10 to 8
-                if( optionT_ == 'x' or optionT_ == 'X' or optionT_ == 'b') optionW_ = 8;
+                //{x|X|b
+                if( *fmt == 'x' or *fmt == 'X' or *fmt == 'b' ) optionT_ = *fmt++;
                 //{x|X|b 0 1-9
                 if( *fmt == '0' ){ optionLZ_ = true; fmt++; }
                 if( *fmt >= '1' and (*fmt <= '9') ) optionW_ = *fmt - '0';
@@ -275,12 +248,13 @@ parseOptions    (const char* fmt){
 count           (){ return count_; }
                 auto
 error           (){ return error_; }
+
                 void
 resetOptions    ()
                 {
-                optionT_ = 0; //no x,X,b
-                optionLZ_ = false; //no leading 0's
-                optionW_ = 10; //assume integer, 10 chars max
+                optionT_ = 0;
+                optionLZ_ = false;
+                optionW_ = 0;
                 }
 
                 //reset count/error
@@ -296,9 +270,11 @@ setNewline      (const char a, const char b = 0) { NL_[0] = a; NL_[1] = b; }
 
                 void
 markupOn        (){ markup_ = true; }
-                //ignore {@ansi} markup
-                void
+                void //ignore {@ansi} markup
 markupOff       (){ markup_ = false; }
+
+
+                // operator<<
 
 
                 //string
@@ -316,32 +292,39 @@ operator<<      (const char* fmt)
                 return *this;
                 }
 
-                //unsigned int
+                //unsigned int, also hex and binary
                 Printer&
 operator<<      (u32 vu)
                 {
-                if( optionT_ == 'b' ) return printBin(vu);
-                if( optionT_ == 'x' or optionT_ == 'X' ) return printHex(vu);
-                auto w = 10;
-                u32 dv = 1000000000;
+                auto div = (optionT_ == 0) ? 10 : (optionT_ == 'b' ) ? 2 : 16;
+                auto w = optionW_ ? optionW_ : (optionT_ = 0) ? 10 : (optionT_ == 'b') ? 32 : 8;
+                if( optionT_ == 'b' and optionW_ >= 1 and optionW_ <= 4 ) w *= 8;
+                char ucbm = (optionT_ == 'X') ? compl (1<<5) : 0; //uppercase bitmask
+                auto i = 0;
+                char buf[w];
                 bool not0 = optionLZ_;
-                while( w-- ){
-                    auto c = vu/dv;
-                    if( c != 0 or w == 0 ) not0 = true;
-                    vu -= c*dv;
-                    if( (w < optionW_) and not0 ) write_( c + '0' );
-                    dv /= 10;
+
+                while( i < w ){
+                    auto c = hexTable[vu % div];
+                    if( c > '9' and ucbm ) c and_eq ucbm; //to uppercase if needed
+                    vu /= div;
+                    buf[i++] = c;
+                    if( not optionLZ_ and vu == 0 ) break;
+                    }
+                while( --i >= 0 ) {
+                    if( buf[i] ) not0 = true;
+                    if( i == 0 or not0 ) write_( buf[i] );
                     }
                 resetOptions();
                 return *this;
                 }
 
-                //signed int
+                //signed int (take care of - , then pass to unsigned)
                 Printer&
 operator<<      (i32 v)
                 {
                 u32 vu = v < 0 ? -v : v;
-                if( v < 0 and optionT_ != 'x' and optionT_ != 'X' and optionT_ != 'b' ) write_( '-' );
+                if( v < 0 and optionT_ == 0 ) write_( '-' );
                 return operator<<( vu );
                 }
 

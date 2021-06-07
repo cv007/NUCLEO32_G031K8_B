@@ -27,7 +27,7 @@ main            ()
                             << "{@Fgreen}encoder1: "
                             << (lastc >= 0 ? "{@Fwhite}" : "{@Fcyan}")
                             << lastc
-                            << " [{b01}" << lastc << "]" << "{@normal}" << endl;
+                            << " [{b01}" << lastc << "]{@normal}" << endl;
                         board.led.toggle();
                         delayMS(5);
                         board.led.toggle();
