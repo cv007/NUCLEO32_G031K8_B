@@ -23,10 +23,11 @@ main            ()
                 while( true ) {
                     if( lastc != encoder1.count() ) {
                         lastc = encoder1.count();
-                        //uart.print("{@Fgreen}encoder1:{@Fwhite} {d}  {b01}{N}", lastc );
-                        uart.print( "{@Fgreen}encoder1: ");
-                        if( lastc >= 0 ) uart.print( "{@Fwhite}" ); else uart.print( "{@Forange}" );
-                        uart.print( "{d}  {b01}{N}", lastc );
+                        uart
+                            << "{@Fgreen}encoder1: "
+                            << (lastc >= 0 ? "{@Fwhite}" : "{@Fcyan}")
+                            << lastc
+                            << " [{b01}" << lastc << "]" << "{@normal}" << endl;
                         board.led.toggle();
                         delayMS(5);
                         board.led.toggle();
@@ -52,17 +53,16 @@ u32* debugRam{ &_sdebugram };
 main            ()
                 {
                 delayMS( 15000 );
-                uart.print("{N");
-                uart.print("   HFSR: 0x{X08}{N}", *(u32*)0xE000ED2C );
-                uart.print("   CFSR: 0x{X08}{N}", *(u32*)0xE000ED28 );
-                uart.print("   UFSR: 0x{X08}{N}", *(u32*)0xE000ED2A );
-
-                uart.print(" rccCSR: 0x{X08}{N}", RCC->CSR );
-                uart.print("scbICSR: 0x{X08}{N}", SCB->ICSR );
-                uart.print("   VTOR: 0x{X08}{N}", SCB->VTOR );
-                uart.print("{N}");
-                for( auto i = 0; i < 32; i++ ) {
-                    uart.print("[{u02}]: 0x{X08}{N}", i, debugRam[i] );
+                uart
+                    << endl
+                    << "   HFSR: 0x{X08}" << *(u32*)0xE000ED2C << endl
+                    << "   CFSR: 0x{X08}" << *(u32*)0xE000ED28 << endl
+                    << "   UFSR: 0x{X08}" << *(u32*)0xE000ED2A << endl
+                    << " rccCSR: 0x{X08}" << RCC->CSR << endl
+                    << "scbICSR: 0x{X08}" << SCB->ICSR << endl
+                    << "   VTOR: 0x{X08}" << SCB->VTOR << endl;
+                for( u32 i = 0; i < 32; i++ ) {
+                    uart << "[{02}" << i << "]: 0x{X08}" debugRam[i] << endl;
                     }
                 while( true ){
                     board.led.toggle();
@@ -111,23 +111,24 @@ main            ()
                 auto count = 0;
                 while( true ){
                     delayMS( 5000 );
-                    uart.print("  count: {}{N}", count++ );
-                    uart.print("  RTSR1: 0x{X08}  {b}{N}", EXTI->RTSR1 );
-                    uart.print("  FTSR1: 0x{X08}  {b}{N}", EXTI->FTSR1 );
-                    uart.print("   RPR1: 0x{X08}  {b}{N}", EXTI->RPR1 );
-                    uart.print("   FPR1: 0x{X08}  {b}{N}", EXTI->FPR1 );
-                    uart.print(" EXTICR: 0x{X08}  {b}{N}", EXTI->EXTICR[0] );
-                    uart.print("       : 0x{X08}  {b}{N}", EXTI->EXTICR[1] );
-                    uart.print("       : 0x{X08}  {b}{N}", EXTI->EXTICR[2] );
-                    uart.print("       : 0x{X08}  {b}{N}", EXTI->EXTICR[3] );
-                    uart.print("   IMR1: 0x{X08}  {b}{N}", EXTI->IMR1 );
-                    uart.print("   EMR1: 0x{X08}  {b}{N}", EXTI->EMR1 );
-                    uart.print("   ISER: 0x{X08}  {b}{N}", NVIC->ISER[0U] );
-                    uart.print("   ISPR: 0x{X08}  {b}{N}", NVIC->ISPR[0U] );
-                    uart.print("scbICSR: 0x{X08}  {b}{N}", SCB->ICSR );
-                    uart.print("ITLINE7: 0x{X08}  {b}{N}", SYSCFG->IT_LINE_SR[7] );
-                    uart.print("   VTOR: 0x{X08}{N}", SCB->VTOR );
-                    uart.print("   [23]: 0x{X08}{N}", ((u32*)(SCB->VTOR))[23] );
+                    uart
+                        << "  count: " << count++ << endl
+                        << "  RTSR1: 0x{X08}" << EXTI->RTSR1 << endl
+                        << "  FTSR1: 0x{X08}" << EXTI->FTSR1 << endl
+                        << "   RPR1: 0x{X08}" << EXTI->RPR1 << endl
+                        << "   FPR1: 0x{X08}" << EXTI->FPR1 << endl
+                        << " EXTICR: 0x{X08}" << EXTI->EXTICR[0] << endl
+                        << "       : 0x{X08}" << EXTI->EXTICR[1] << endl
+                        << "       : 0x{X08}" << EXTI->EXTICR[2] << endl
+                        << "       : 0x{X08}" << EXTI->EXTICR[3] << endl
+                        << "   IMR1: 0x{X08}" << EXTI->IMR1 << endl
+                        << "   EMR1: 0x{X08}" << EXTI->EMR1 << endl
+                        << "   ISER: 0x{X08}" << NVIC->ISER[0U] << endl
+                        << "   ISPR: 0x{X08}" << NVIC->ISPR[0U] << endl
+                        << "scbICSR: 0x{X08}" << SCB->ICSR << endl
+                        << "ITLINE7: 0x{X08}" << SYSCFG->IT_LINE_SR[7] << endl
+                        << "   VTOR: 0x{X08}" << SCB->VTOR << endl
+                        << "   [23]: 0x{X08}" << ((u32*)(SCB->VTOR))[23] << endl
 
                     //startup.cpp will store scbICSR value first thing in reset function
                     //and the value should be 0, but is 3 after programming (exception irq is active)
@@ -136,8 +137,8 @@ main            ()
 
                     //since we are in an exception in these cases, no irq even though all other
                     //registers indicate everything is setup correctly
-                    uart.print("   [01]: 0x{X08}{N}", ((u32*)(SCB->VTOR))[01] );
-                    uart.print("{N}");
+                    uart
+                        << "   [01]: 0x{X08}" << ((u32*)(SCB->VTOR))[01] << endl;
                     }
 
                 }
@@ -180,11 +181,7 @@ switchValues    (u32& swv) //return true if switches changed
                 void
 printInfo       (u32 swv, u32 t)
                 {
-                uart.print("switches: ");
-                for( auto i = 0; i < arraySize(switches); i++, swv >>= 1 ) {
-                    uart.print( "{u} ", swv & 1 );
-                    }
-                uart.print( " delay: {u}{N}", t );
+                uart << "switches: " << "{b}" << swv << " delay: " << t << endl;
                 }
 
                 int
