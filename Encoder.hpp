@@ -130,27 +130,27 @@ irqSwap         () -> void
                 volatile i32 count_;        //encoder count
                 //set min/max limit values to match count_ type/size
                 SCA COUNTMIN{ (i32)0x80000000 };
-                SCA COUNTMAX{ (i32)0x7FFFFFFF }; 
+                SCA COUNTMAX{ (i32)0x7FFFFFFF };
 
 };
 
-//created as seperate instances
-inline Encoder encoder1{ PB4, PB5 };
-//inline Encoder encoder2{ PB9, PA8 };
-//inline Encoder encoder3{ PB0, PB2 };
 
-//array of instances
+//created as seperate instances
+// inline Encoder encoder1{ PB4, PB5 };
+// inline Encoder encoder2{ PB9, PA8 };
+// inline Encoder encoder3{ PB0, PB2 };
+
+//or array of instances
 // inline Encoder encoder[]{
 //     { PB4, PB5 },
 //     { PB9, PA8 },
 //     { PB0, PB2 }
 // };
 
-//just create the init here for now to get a lambda function
-//to call the encoder isr
-inline auto encoder1Init(){
-    irqFunction(
-        EXTI4_15_IRQn,
-        [](){ encoder1.isr(); }
-    );
-}
+//can create the init here to call the encoder isr from the proper ram vector interrupt
+// inline auto encoder1Init(){
+//     irqFunction(
+//         EXTI4_15_IRQn,
+//         [](){ encoder1.isr(); }
+//     );
+// }

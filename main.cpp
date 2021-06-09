@@ -15,20 +15,34 @@
     print out values when encoder changes
     (see Encoder.hpp)
 --------------------------------------------------------------*/
+Encoder encoder1{ board.D[11], board.D[12] }; //PB4,PB5 D11,D12
+
+                static void
+encoder1Init    ()
+                {
+                //lambda function which can call the instance
+                //(encoder1 not static, so cannot place encode1.isr address
+                // directly in the ram vector)
+                irqFunction( EXTI4_15_IRQn, [](){ encoder1.isr(); } );
+                }
+
                 int
 main            ()
                 {
+
                 encoder1Init();
+
+
                 i32 lastc = 0;
                 while( true ) {
                     if( lastc != encoder1.count() ) {
                         lastc = encoder1.count();
                         uart
                             << clear
-                            << "{@Fgreen}encoder1: "
-                            << (lastc >= 0 ? "{@Fwhite}" : "{@Fcyan}")
+                            << fg << GREEN << "encoder1: "
+                            << fg << (lastc >= 0 ? WHITE : CYAN)
                             << setw(4) << lastc
-                            << setfill('0') << bin << " [" << setw(8) << lastc << "]{@normal}" << endl;
+                            << setfill('0') << bin << " [" << setw(8) << lastc << "]" << NORMAL << endl;
                         board.led.toggle();
                         delayMS(5);
                         board.led.toggle();
