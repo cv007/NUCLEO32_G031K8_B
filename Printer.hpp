@@ -117,6 +117,8 @@ markup          (const char* fmt)
 
 };
 
+
+
 /*-------------------------------------------------------------
     Printer
 
@@ -126,60 +128,11 @@ markup          (const char* fmt)
         write return value is false if there is an error
 
     not a big fan of cout style, but it does make the creation
-    of the Printer class more straight forward as the compiler
-    can take on some of the work and eliminate the need for
-    more type options
+    of the Printer class more straight forward
 
-
-
-    optional formatting is string contained in {}
-
-    {t0n}
-        t = types listed below
-        0 = optional '0' (leading 0's on)
-        n = optional '1'-'9' (max number of chars to print)
-    {N}, print newline, which can set set with .setNewline
-    {@ansi}, markup codes for ansi- see Markup class
-
-                                0,n optional  default value for n
-    'x' = hex lowercase         {x0n}           8
-    'X' = hex uppercase         {X0n}           8
-    'b' = binary (0,1)          {b0n}           8  (n 1-4 -> 8,16,24,36)
-
-    all options are reset after each use of <<
-
-
+    documentation-
 
     examples-
-        //simple string,
-        dev << "Hello World" << endl; //-> "Hello World!\r\n"
-        dev << "Hello World{N}"; //-> "Hello World!\r\n" (newline code embedded in string)
-
-        int v = -123;
-
-        //print v, no leading 0's, no max limit of chars
-        //also reset count/error via .start()
-        dev.start() << v; //-> "-123"
-
-        //print v in unsigned, no leading 0's, no max limit of chars
-        dev << (u32)v << endl; //-> "4294967173\r\n"
-
-        v = 254;
-        //print using d and b
-        //v w/leading 0's, max chars 3 (000-999)
-        //v binary w/leading 0's, 1 byte max (n 1-4 will convert to 8,16,24,32)
-        dev << "d: {03}" << v <<  b: {b01}" << v << endl; //-> "d: 254  b: 11111110\r\n"
-
-        v = 23456;
-        //print using X and x
-        //X leading 0's, max chars 4 (0000-FFFF)
-        //x leading 0's, max chars 2 (00-FF)
-        dev << "X: 0x{X04}" << v << "  x: 0x{x02}" << v << endl; //-> "X: 0x5BA0  x: 0xa0\r\n"
-
-        char ch = 'a';
-        //if want to a char to be treated as an int, promote it with + or cast it
-        dev << "c: " << ch << "  x: 0x{x01}" << +ch << "  d: " << +ch << "  b: 0b{b01}" << +ch << endl;
-        //-> "c: a  x: 0x61  d: 97  b: 0b1100001"
 
 --------------------------------------------------------------*/
 class Printer : protected Markup {
@@ -192,86 +145,109 @@ class Printer : protected Markup {
                 virtual bool write(const char) = 0;
 
                 static constexpr char hexTable[]{ "0123456789abcdef" };
+                static constexpr auto OPTIONW_MAX{ 128 }; //maximum value of optionW_
 
-                char NL_[3]     { "\r\n" }; //change default as needed, can change at runtime
-                int  count_     { 0 };      //return number of chars printed
+                char NL_[3]     {"\r\n"};   //newline combo, can be change at runtime
+                int  count_     { 0 };      //number of chars printed
                 bool error_     { false };  //store any errors along the way
-                char optionT_   { 0 };      //specified type ('x','X','b')
-                bool optionLZ_  { false };  //leading 0's (set by '0')
-                char optionW_   { 0 };      //number of chars to print ('1'-'9')
-                bool markup_    { true };   //ansi markup enable
+                char optionW_   { 0 };      //minimum width
+                int  optionB_   { 10 };     //base 2,8,10,16
+                bool optionUC_  { false };  //uppercase?
+                bool optionSB_  { false };  //showbase? 0x 0 0b
+                char optionFIL_ { ' ' };    //setfill char
+                bool markup_    { true };   //markup enabled?
+                bool optionNEG_ { false };  //is negative?
 
-                //helper write, so we can also inc count
+                //helper write, so we can also inc count for each char written
                 void
 write_          (char c)
                 { if( write(c) ) count_++; else error_ = true; }
 
                 virtual void
 writeStr        (const char* str)
-                { while( *str ) write( *str++ ); }
-
-                void
-writeNL         () { writeStr( NL_ ); }
-
+                { while( *str ) write_( *str++ ); }
 
                 //parse options inside {}
+                // {N[N...]} is newline combo in use
+                // {@ansi} is ansi codes in Markup class
                 void
 parseOptions    (const char* fmt){
-                //{{ - escape '{' if want to print '{'
-                if( *fmt == '{' ){ write_(*fmt++); return; }
-                //{} - empty
-                if( *fmt == '}' ){ fmt++; return; }
-                //{N[N...]} newline as many as there are N's
-                if( *fmt == 'N' ){
+                if( *fmt == '{' ) { write_(*fmt++); return; } //{{ - escaped '{'
+                if( *fmt == '}' ) { fmt++; return; } //{} - empty
+                if( *fmt == 'N' ) { //{N[N...]} newline as many as there are N's
                     while( *fmt++ == 'N' ) writeNL();
                     return;
                     }
-                if( *fmt == '@' ){
-                    markup( ++fmt );
-                    return;
-                    }
-                //{x|X|b
-                if( *fmt == 'x' or *fmt == 'X' or *fmt == 'b' ) optionT_ = *fmt++;
-                //{x|X|b 0 1-9
-                if( *fmt == '0' ){ optionLZ_ = true; fmt++; }
-                if( *fmt >= '1' and (*fmt <= '9') ) optionW_ = *fmt - '0';
+                if( *fmt == '@' ) markup( ++fmt ); //@ansi
                 }
 
 //-------------|
     public:
 //-------------|
 
-                // {x|X|b[0][1-9]}
-                // {N[N...]} = newline (x number of N's)
-
                 auto
 count           (){ return count_; }
                 auto
 error           (){ return error_; }
 
-                void
-resetOptions    ()
-                {
-                optionT_ = 0;
-                optionLZ_ = false;
-                optionW_ = 0;
-                }
 
-                //reset count/error
-                // dev.start << 123;
-                // dev.count() returns 3
-                Printer&
-start           () { count_ = 0; error_ = 0; return *this; }
+                // everything below returns Printer&
+
 
                 //set to 1 or 2 chars you want for {N}ewline
-                //NL_[2] already 0, cannot change so no need to set again
-                void
-setNewline      (const char a, const char b = 0) { NL_[0] = a; NL_[1] = b; }
+                //NL_[2] already 0, cannot change so no need to set
+                Printer&
+setNewline      (const char a, const char b = 0) { NL_[0] = a; NL_[1] = b; return *this; }
+                Printer&
+markupOn        (){ markup_ = true; return *this; }
+                Printer& //ignore {@ansi} markup
+markupOff       (){ markup_ = false; return *this; }
 
-                void
-markupOn        (){ markup_ = true; }
-                void //ignore {@ansi} markup
-markupOff       (){ markup_ = false; }
+
+                // << options
+
+
+                // reset options,  << clear
+                Printer&
+start           ()
+                {
+                count_ = 0;
+                error_ = 0;
+                optionUC_ = false;
+                optionB_ = 10;
+                optionFIL_ = ' ';
+                optionW_ = 0;
+                optionSB_ = false;
+                return *this;
+                }
+
+                // << setw(n) - n limited to OPTIONW_MAX
+                Printer&
+width           (int v) { optionW_ = v > OPTIONW_MAX ? OPTIONW_MAX : v; return *this; }
+
+                // << bin|oct|dec|hex
+                Printer&
+base            (int v)
+                {
+                optionB_ = (v == 16 or v == 8 or v == 2) ? v : 10;
+                return *this;
+                }
+
+                // << showbase , << noshowbase
+                Printer&
+showbase        (bool tf) { optionSB_ = tf; return *this; }
+
+                // << setfill('char') (default is ' ')
+                Printer&
+setfill         (char c) { optionFIL_ = c; return *this; }
+
+                // << nouppercase, << uppercase
+                Printer&
+uppercase       (bool tf) { optionUC_ = tf; return *this; }
+
+                // << endl
+                Printer&
+writeNL         () { writeStr( NL_ ); return *this; }
 
 
                 // operator<<
@@ -281,62 +257,161 @@ markupOff       (){ markup_ = false; }
                 Printer&
 operator<<      (const char* fmt)
                 {
+                //filler before string if width set, but need to know string length
+                //first (without markup) as we are not using a buffer
+                auto w = optionW_;
+                auto i = 0;
+                const char* str = fmt;
+                if( w ){ //setw in effect
+                    while( true ) {
+                        while( *str != '{' and *str ){ i++; str++; }
+                        while( *str != '}' and *str ){ str++; }
+                        if( *str == 0 ) break;
+                        }
+                    while( w-- > i ) write_( optionFIL_ );
+                    }
                 while( true ) {
                     while( *fmt != '{' and *fmt ) write_( *fmt++ );
                     if( not *fmt ) break;
-                    //{
-                    parseOptions( ++fmt );
-                    //}
-                    while( *fmt++ != '}' ){}
+                    parseOptions( ++fmt ); // {
+                    while( *fmt++ != '}' ){} // }
                     }
+                optionW_ = 0;
                 return *this;
                 }
 
-                //unsigned int, also hex and binary
+                //unsigned int
                 Printer&
-operator<<      (u32 vu)
+operator<<      (u32 v)
                 {
-                auto div = (optionT_ == 0) ? 10 : (optionT_ == 'b' ) ? 2 : 16;
-                auto w = optionW_ ? optionW_ : (optionT_ = 0) ? 10 : (optionT_ == 'b') ? 32 : 8;
-                if( optionT_ == 'b' and optionW_ >= 1 and optionW_ <= 4 ) w *= 8;
-                char ucbm = (optionT_ == 'X') ? compl (1<<5) : 0; //uppercase bitmask
+                auto div = optionB_; //2,8,10,16
+                auto w = optionW_;
+                char ucbm = optionUC_ ? compl (1<<5) : 0; //uppercase bitmask
                 auto i = 0;
-                char buf[w];
-                bool not0 = optionLZ_;
-
-                while( i < w ){
-                    auto c = hexTable[vu % div];
-                    if( c > '9' and ucbm ) c and_eq ucbm; //to uppercase if needed
-                    vu /= div;
+                char buf[w?w:32];
+                while( v ){
+                    auto c = hexTable[v % div];
+                    if( c > '9' and ucbm ) c and_eq ucbm; //to uppercase
+                    v /= div;
                     buf[i++] = c;
-                    if( not optionLZ_ and vu == 0 ) break;
                     }
-                while( --i >= 0 ) {
-                    if( buf[i] ) not0 = true;
-                    if( i == 0 or not0 ) write_( buf[i] );
-                    }
-                resetOptions();
+                if( i == 0 ) buf[i++] = '0';
+                //add -, 0b, 0x, 0, now if optionFIL_ is not '0'
+                //else add fill first
+                auto fill = [&](){ while( i < w ) buf[i++] = optionFIL_; };
+                auto xtras = [&](){
+                    if( optionNEG_ ) buf[i++] = '-'; //negative dec
+                    if( optionSB_ ){ //showbase
+                        if( optionB_ == 16 ){ buf[i++] = 'x'; buf[i++] = '0'; }
+                        if( optionB_ == 8 ){ buf[i++] = '0'; }
+                        if( optionB_ == 2 ){ buf[i++] = 'b'; buf[i++] = '0'; }
+                        }
+                };
+                if( optionFIL_ == '0' ){ fill(); xtras(); } else { xtras(); fill(); }
+                while( --i >= 0 ) write_( buf[i] );
+                optionNEG_ = false;
+                optionW_ = 0;
                 return *this;
                 }
 
-                //signed int (take care of - , then pass to unsigned)
+                //signed int
                 Printer&
 operator<<      (i32 v)
                 {
                 u32 vu = v < 0 ? -v : v;
-                if( v < 0 and optionT_ == 0 ) write_( '-' );
+                if( v < 0 and optionB_ == 10 ) optionNEG_ = true;
                 return operator<<( vu );
                 }
 
                 //unsigned char
                 Printer&
-operator<<      (u8 vu) { write_( vu bitand 0xFF ); return *this; }
+operator<<      (u8 v)
+                {
+                write_( v bitand 0xFF );
+                return *this;
+                }
                 //char
                 Printer&
 operator<<      (i8 v) { write_( v bitand 0xFF ); return *this; }
 
-
 };
-#define endl "{N}"
 
 
+/*-------------------------------------------------------------
+    Printer helpers for <<
+
+    setw(n)         set minimum width n (max value is specified in Printer class)
+    setfill(c)      set fill char, default is ' '
+    endl            write specified newline combo in effect
+    bin             set base to 2
+    oct             set base to 8
+    dec             set base to 10 (default)
+    hex             set base to 16
+    clear           set options to default, clear count, error
+    noshowbase      do not show base headers
+    showbase        show base headers- 0x, 0, 0b
+    nouppercase     'a'-'f'
+    uppercase       'A'-'F'
+
+    all options remain set except for setw(), which is cleared
+    after use, also <<clear resets all options
+--------------------------------------------------------------*/
+namespace prn {
+
+                struct Setw_ { int n; };
+                inline Setw_
+setw            (int n) { return { n }; }
+                inline Printer&
+                operator<<(Printer& p, Setw_ w)
+                {
+                return p.width(w.n);
+                }
+
+                struct Setfill_ { char c; };
+                inline Setfill_
+setfill         (char c) { return { c }; }
+                inline Printer&
+                operator<<(Printer& p, Setfill_ c)
+                {
+                return p.setfill( c.c );
+                }
+
+                enum ENDL_ {
+endl            };
+                inline Printer&
+                operator<<(Printer& p, ENDL_ v) { (void)v; return p.writeNL(); }
+
+                enum BASE_ {
+bin             = 2,
+oct             = 8,
+dec             = 10,
+hex             = 16 };
+                inline Printer&
+                operator<<(Printer& p, BASE_ v) { return p.base(v); }
+
+                enum CLEAR_ {
+clear           };
+                inline Printer&
+                operator<<(Printer& p, CLEAR_ v) { (void)v; return p.start(); }
+
+                enum SHOWBASE_ {
+noshowbase,
+showbase        };
+                inline Printer&
+                operator<<(Printer& p, SHOWBASE_ v)
+                {
+                return p.showbase( v );
+                }
+
+                enum UPPERCASE_ {
+nouppercase,
+uppercase       };
+                inline Printer&
+                operator<<(Printer& p, UPPERCASE_ v)
+                {
+                return p.uppercase( v );
+                }
+
+}
+
+using namespace prn;

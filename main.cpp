@@ -24,10 +24,11 @@ main            ()
                     if( lastc != encoder1.count() ) {
                         lastc = encoder1.count();
                         uart
+                            << clear
                             << "{@Fgreen}encoder1: "
                             << (lastc >= 0 ? "{@Fwhite}" : "{@Fcyan}")
-                            << lastc
-                            << " [{b01}" << lastc << "]{@normal}" << endl;
+                            << setw(4) << lastc
+                            << setfill('0') << bin << " [" << setw(8) << lastc << "]{@normal}" << endl;
                         board.led.toggle();
                         delayMS(5);
                         board.led.toggle();
