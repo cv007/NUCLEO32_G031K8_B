@@ -14,9 +14,10 @@
         bool write(const char)
         write return value is false if there is an error
 
-    not a big fan of cout style as its gets verbose, but
-    it does make the creation of the Printer class more
-    straight forward
+    no buffers used, all data goes directly out to the
+    device write function, if any buffering wanted it
+    has to be done in the device class that inherits this
+
 
     documentation-
 
@@ -47,6 +48,7 @@ class Printer {
                 bool stickyW_   { false };  //keep optionW_ after use?
                 bool optionPOS_ { false };  //show + for positive dec
                 bool optionBA_  { false };  //bool alpha? "true"/"false", 1,0
+                bool optionJL_  { false };  //justify left?
 
                 //helper write, so we can also inc count for each char written
                 void
@@ -92,6 +94,7 @@ start           ()
                 optionSB_ = false;
                 stickyW_ = false;
                 optionBA_ = false;
+                optionJL_ = false;
                 return *this;
                 }
 
@@ -104,25 +107,22 @@ width           (int v, bool sticky = false)
                 return *this;
                 }
 
-                // << bin|oct|dec|hex
+                // << bin|bin0b|oct|oct0|dec|hex|hex0x|Hex|Hex0x
+                //     2    3    8   9   10  16   17   18   19
+                //          SB       SB           SB   UC  SB+UC
                 Printer&
 base            (int v)
                 {
-                optionB_ = (v == 16 or v == 8 or v == 2) ? v : 10;
+                optionUC_ = (v >= 18); //18,19
+                optionSB_ = (v bitand 1);//3,9,17,19
+                if( v >= 16 ) optionB_ = 16; //16,17,18,19-> base 16
+                else optionB_ = v bitand 10; //-> base 2,8,10
                 return *this;
                 }
-
-                // << showbase , << noshowbase
-                Printer&
-showbase        (bool tf) { optionSB_ = tf; return *this; }
 
                 // << setfill('char') (default is ' ')
                 Printer&
 setfill         (char c) { optionFIL_ = c; return *this; }
-
-                // << nouppercase, << uppercase
-                Printer&
-uppercase       (bool tf) { optionUC_ = tf; return *this; }
 
                 // << noshowpos , << showpos
                 Printer&
@@ -131,6 +131,11 @@ positive        (bool tf) { optionPOS_ = tf; return *this; }
                 // << noshowalpha , << showalpha
                 Printer&
 boolalpha       (bool tf) { optionBA_ = tf; return *this; }
+
+                // << left, << right
+                Printer&
+justifyleft     (bool tf) { optionJL_ = tf; return *this; }
+
                 // << endl
                 Printer&
 writeNL         () { writeStr( NL_ ); return *this; }
@@ -143,11 +148,12 @@ writeNL         () { writeStr( NL_ ); return *this; }
                 Printer&
 operator<<      (const char* fmt)
                 {
-                //add any fill before string if optionW_ set
                 auto w = optionW_;
                 int i = w ? __builtin_strlen( fmt ) : 0;
-                while( w-- > i ) write_( optionFIL_ );
+                auto fill = [&]{ while( w-- > i ) write_( optionFIL_ ); };
+                if( not optionJL_ ) fill(); //justify right, fill first
                 while( *fmt ) write_( *fmt++ );
+                if( optionJL_ ) fill();//justify left, fill last
                 if( not stickyW_ ) optionW_ = 0;
                 return *this;
                 }
@@ -224,22 +230,25 @@ operator<<      (bool v)
 
     setw(n)         set minimum width n (max value is specified in Printer class)
     setW(n)         a 'sticky' version of setw (value remains after use)
+                    (a setw() will clear the sticky)
     setfill(c)      set fill char, default is ' '
     endl            write specified newline combo in effect
     bin             set base to 2
+    bin0b           with showbase
     oct             set base to 8
+    oct0            with showbase
     dec             set base to 10 (default)
     hex             set base to 16
+    hex0x           with showbase
+    Hex             uppercase
+    Hex0x           uppercase with showbase
     clear           set options to default, clear count, error
-    noshowbase      do not show base headers
-    showbase        show base headers- 0x, 0, 0b
-    nouppercase     'a'-'f'
-    uppercase       'A'-'F'
     noshowpos       no + for dec
     showpos         show + for dec that are positive
     showalpha       bool is "true" or "false"
     noshowalpha     bool is 1 or 0 (treated as unsigned int)
-    set(bin|oct|dec|hex, showbase|noshowbase, uppercase|nouppercase, fillchar)
+    set(bin|bin0b|oct|oct0||dec|hex|hex0x,Hex,Hex0x, W, fillchar)
+        W is setW sticky version
 
     all options remain set except for setw(), which is cleared
     after use, also <<clear resets all options
@@ -280,9 +289,14 @@ endl            };
 
                 enum BASE_ {
 bin             = 2,
+bin0b           = 3,    //0b
 oct             = 8,
+oct0            = 9,    //0
 dec             = 10,
-hex             = 16 };
+hex             = 16,   //lowercase
+hex0x           = 17,   //0x, lowercase
+Hex             = 18,   //uppercase
+Hex0x           = 19 }; //0x, uppercase
                 inline Printer&
                 operator<<(Printer& p, BASE_ v) { return p.base(v); }
 
@@ -291,52 +305,35 @@ clear           };
                 inline Printer&
                 operator<<(Printer& p, CLEAR_ v) { (void)v; return p.start(); }
 
-                enum SHOWBASE_ {
-noshowbase,
-showbase        };
-                inline Printer&
-                operator<<(Printer& p, SHOWBASE_ v)
-                {
-                return p.showbase( v );
-                }
-
-                enum UPPERCASE_ {
-nouppercase,
-uppercase       };
-                inline Printer&
-                operator<<(Printer& p, UPPERCASE_ v)
-                {
-                return p.uppercase( v );
-                }
 
                 enum POSITIVE_ {
 noshowpos,
 showpos         };
                 inline Printer&
-                operator<<(Printer& p, POSITIVE_ v)
-                {
-                return p.positive( v );
-                }
+                operator<<(Printer& p, POSITIVE_ v) { return p.positive( v ); }
 
                 enum ALPHA_ {
 noshowalpha,
 showalpha       };
                 inline Printer&
-                operator<<(Printer& p, ALPHA_ v)
-                {
-                return p.boolalpha( v );
-                }
+                operator<<(Printer& p, ALPHA_ v) { return p.boolalpha( v ); }
 
-                struct Set_ { BASE_ base; SHOWBASE_ show; UPPERCASE_ uc; char fill; };
+                enum JUSTIFY_ {
+right,
+left            };
+                inline Printer&
+                operator<<(Printer& p, JUSTIFY_ v) { return p.justifyleft( v ); }
+
+                struct Set_ { BASE_ base; int W; char fill; };
                 inline Set_
-set             (BASE_ base, SHOWBASE_ sbase = showbase, UPPERCASE_ uc = uppercase, char fill = ' ')
+set             (BASE_ base, int W, char fill = ' ')
                 {
-                return { base, sbase, uc, fill };
+                return { base, W, fill };
                 }
                 inline Printer&
                 operator<<(Printer& p, Set_ s)
                 {
-                return p.base(s.base).showbase(s.show).uppercase(s.uc).setfill(s.fill);
+                return p.base(s.base).setfill(s.fill).width(s.W, true);
                 }
 
 }
