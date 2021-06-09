@@ -143,24 +143,13 @@ writeNL         () { writeStr( NL_ ); return *this; }
                 Printer&
 operator<<      (const char* fmt)
                 {
-                //add any fill before string
+                //add any fill before string if optionW_ set
                 auto w = optionW_;
                 int i = w ? __builtin_strlen( fmt ) : 0;
                 while( w-- > i ) write_( optionFIL_ );
                 while( *fmt ) write_( *fmt++ );
                 if( not stickyW_ ) optionW_ = 0;
                 return *this;
-//                 //add any fill before string
-//                 auto w = optionW_;
-//                 auto i = 0;
-//                 const char* str = fmt;
-//                 if( w ){ //setw in effect, figure out string length
-//                     while( *str++ ) i++;
-//                     while( w-- > i ) write_( optionFIL_ );
-//                     }
-//                 while( *fmt ) write_( *fmt++ );
-//                 if( not stickyW_ ) optionW_ = 0;
-//                 return *this;
                 }
 
                 //unsigned int
