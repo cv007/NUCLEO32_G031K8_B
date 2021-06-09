@@ -55,15 +55,18 @@ main            ()
                 {
                 delayMS( 15000 );
                 uart
-                    << clear << endl << hex << showbase << setfill('0')
-                    << "   HFSR: " << setw(8) << *(u32*)0xE000ED2C << endl
-                    << "   CFSR: " << setw(8) << *(u32*)0xE000ED28 << endl
-                    << "   UFSR: " << setw(8) << *(u32*)0xE000ED2A << endl
-                    << " rccCSR: " << setw(8) << RCC->CSR << endl
-                    << "scbICSR: " << setw(8) << SCB->ICSR << endl
-                    << "   VTOR: " << setw(8) << SCB->VTOR << endl;
+                    << set( hex, showbase, uppercase, '0' ) << setW(10)
+                    << endl
+                    <<    "HFSR: " << *(u32*)0xE000ED2C << endl
+                    <<    "CFSR: " << *(u32*)0xE000ED28 << endl
+                    <<    "UFSR: " << *(u32*)0xE000ED2A << endl
+                    <<  "rccCSR: " << RCC->CSR << endl
+                    << "scbICSR: " << SCB->ICSR << endl
+                    <<    "VTOR: " << SCB->VTOR << endl << clear;
                 for( u32 i = 0; i < 32; i++ ) {
-                    uart << "[" setw(2) << i << "]: " << setw(8) << debugRam[i] << endl;
+                    uart
+                        << setw(5) << "[" setw(2) << i << "]: "
+                        << setw(10) << debugRam[i] << endl << clear;
                     }
                 while( true ){
                     board.led.toggle();
@@ -113,24 +116,25 @@ main            ()
                 while( true ){
                     delayMS( 5000 );
                     uart
-                        << "  count: " << count++ << endl
-                        << setfill('0') << hex << showbase
-                        << "  RTSR1: " << EXTI->RTSR1 << endl
-                        << "  FTSR1: " << EXTI->FTSR1 << endl
-                        << "   RPR1: " << setw(8) << EXTI->RPR1 << endl
-                        << "   FPR1: " << setw(8) << EXTI->FPR1 << endl
-                        << " EXTICR: " << setw(8) << EXTI->EXTICR[0] << endl
-                        << "       : " << setw(8) << EXTI->EXTICR[1] << endl
-                        << "       : " << setw(8) << EXTI->EXTICR[2] << endl
-                        << "       : " << setw(8) << EXTI->EXTICR[3] << endl
-                        << "   IMR1: " << setw(8) << EXTI->IMR1 << endl
-                        << "   EMR1: " << setw(8) << EXTI->EMR1 << endl
-                        << "   ISER: " << setw(8) << NVIC->ISER[0U] << endl
-                        << "   ISPR: " << setw(8) << NVIC->ISPR[0U] << endl
-                        << "scbICSR: " << setw(8) << SCB->ICSR << endl
-                        << "ITLINE7: " << setw(8) << SYSCFG->IT_LINE_SR[7] << endl
-                        << "   VTOR: " << setw(8) << SCB->VTOR << endl
-                        << "   [23]: " << setw(8) << ((u32*)(SCB->VTOR))[23] << endl
+                        << setW(10)
+                        << "count: " << count++ << endl
+                        << set( hex, showbase, uppercase, '0' )
+                        << "RTSR1: " << EXTI->RTSR1 << endl
+                        << "FTSR1: " << EXTI->FTSR1 << endl
+                        << "RPR1: " << EXTI->RPR1 << endl
+                        << "FPR1: " << EXTI->FPR1 << endl
+                        << "EXTICR: " << EXTI->EXTICR[0] << endl
+                        << ": " << EXTI->EXTICR[1] << endl
+                        << ": " << EXTI->EXTICR[2] << endl
+                        << ": " << EXTI->EXTICR[3] << endl
+                        << "IMR1: " << EXTI->IMR1 << endl
+                        << "EMR1: " << EXTI->EMR1 << endl
+                        << "ISER: " << NVIC->ISER[0U] << endl
+                        << "ISPR: " << NVIC->ISPR[0U] << endl
+                        << "scbICSR: " << SCB->ICSR << endl
+                        << "ITLINE7: " << SYSCFG->IT_LINE_SR[7] << endl
+                        << "VTOR: " << SCB->VTOR << endl
+                        << "[23]: " << ((u32*)(SCB->VTOR))[23] << endl
 
                     //startup.cpp will store scbICSR value first thing in reset function
                     //and the value should be 0, but is 3 after programming (exception irq is active)
@@ -139,8 +143,8 @@ main            ()
 
                     //since we are in an exception in these cases, no irq even though all other
                     //registers indicate everything is setup correctly
-                    uart
-                        << "   [01]: " << setw(8) << ((u32*)(SCB->VTOR))[01] << endl;
+
+                        << "[01]: " << ((u32*)(SCB->VTOR))[01] << endl << clear;
                     }
 
                 }
@@ -184,7 +188,7 @@ switchValues    (u32& swv) //return true if switches changed
 printInfo       (u32 swv, u32 t)
                 {
                 uart
-                    << "switches: " << setfill('0') << setw(4) << bin << swv
+                    << "switches: " << setfill('0') << bin << setw(4) << swv
                     << dec << " delay: " << t << endl;
                 }
 
