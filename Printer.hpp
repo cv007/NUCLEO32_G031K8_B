@@ -232,7 +232,7 @@ operator<<      (bool v)
     setW(n)         a 'sticky' version of setw (value remains after use)
                     (a setw() will clear the sticky)
     setfill(c)      set fill char, default is ' '
-    endl            write specified newline combo in effect
+    endl            write newline combo as specified in Printer class
     bin             set base to 2
     bin0b           with showbase
     oct             set base to 8
@@ -247,8 +247,12 @@ operator<<      (bool v)
     showpos         show + for dec that are positive
     showalpha       bool is "true" or "false"
     noshowalpha     bool is 1 or 0 (treated as unsigned int)
-    set(bin|bin0b|oct|oct0||dec|hex|hex0x,Hex,Hex0x, W, fillchar)
+
+    setBWF(bin|bin0b|oct|oct0||dec|hex|hex0x,Hex,Hex0x, W, fillchar)
         W is setW sticky version
+
+    setBwF(bin|bin0b|oct|oct0||dec|hex|hex0x,Hex,Hex0x, w, fillchar)
+        w is setw - non sticky version
 
     all options remain set except for setw(), which is cleared
     after use, also <<clear resets all options
@@ -324,16 +328,28 @@ left            };
                 inline Printer&
                 operator<<(Printer& p, JUSTIFY_ v) { return p.justifyleft( v ); }
 
-                struct Set_ { BASE_ base; int W; char fill; };
-                inline Set_
-set             (BASE_ base, int W, char fill = ' ')
+                struct SetBWF_ { BASE_ base; int W; char fill; };
+                inline SetBWF_
+setBWF          (BASE_ base, int W, char fill = ' ')
                 {
                 return { base, W, fill };
                 }
                 inline Printer&
-                operator<<(Printer& p, Set_ s)
+                operator<<(Printer& p, SetBWF_ s)
                 {
-                return p.base(s.base).setfill(s.fill).width(s.W, true);
+                return p.base(s.base).width(s.W, true).setfill(s.fill);
+                }
+
+                struct SetBwF_ { BASE_ base; int w; char fill; };
+                inline SetBwF_
+setBwF          (BASE_ base, int w, char fill = ' ')
+                {
+                return { base, w, fill };
+                }
+                inline Printer&
+                operator<<(Printer& p, SetBwF_ s)
+                {
+                return p.base(s.base).width(s.w).setfill(s.fill);
                 }
 
 }
