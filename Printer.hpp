@@ -27,39 +27,6 @@
 class Printer {
 
 //-------------|
-    private:
-//-------------|
-
-                //parent class has the write function
-                virtual bool write(const char) = 0;
-
-                static constexpr char hexTable[]{ "0123456789abcdef" };
-                SCA OPTIONW_MAX{ 128 }; //maximum value of optionW_
-
-                char NL_[3]     {"\r\n"};   //newline combo, can be change at runtime
-                int  count_     { 0 };      //number of chars printed
-                bool error_     { false };  //store any errors along the way
-                char optionW_   { 0 };      //minimum width
-                int  optionB_   { 10 };     //base 2,8,10,16
-                bool optionUC_  { false };  //uppercase?
-                bool optionSB_  { false };  //showbase? 0x 0 0b
-                char optionFIL_ { ' ' };    //setfill char
-                bool optionNEG_ { false };  //is negative?
-                bool stickyW_   { false };  //keep optionW_ after use?
-                bool optionPOS_ { false };  //show + for positive dec
-                bool optionBA_  { false };  //bool alpha? "true"/"false", 1,0
-                bool optionJL_  { false };  //justify left?
-
-                //helper write, so we can also inc count for each char written
-                void
-write_          (char c)
-                { if( write(c) ) count_++; else error_ = true; }
-
-                virtual void
-writeStr        (const char* str)
-                { while( *str ) write_( *str++ ); }
-
-//-------------|
     public:
 //-------------|
 
@@ -222,6 +189,39 @@ operator<<      (bool v)
                 return operator<<( (u32)v );
                 }
 
+//-------------|
+    private:
+//-------------|
+
+                //parent class has the write function
+                virtual bool write(const char) = 0;
+
+                static constexpr char hexTable[]{ "0123456789abcdef" };
+                SCA OPTIONW_MAX{ 128 }; //maximum value of optionW_
+
+                char NL_[3]     {"\r\n"};   //newline combo, can be change at runtime
+                int  count_     { 0 };      //number of chars printed
+                bool error_     { false };  //store any errors along the way
+                char optionW_   { 0 };      //minimum width
+                int  optionB_   { 10 };     //base 2,8,10,16
+                bool optionUC_  { false };  //uppercase?
+                bool optionSB_  { false };  //showbase? 0x 0 0b
+                char optionFIL_ { ' ' };    //setfill char
+                bool optionNEG_ { false };  //is negative?
+                bool stickyW_   { false };  //keep optionW_ after use?
+                bool optionPOS_ { false };  //show + for positive dec
+                bool optionBA_  { false };  //bool alpha? "true"/"false", 1,0
+                bool optionJL_  { false };  //justify left?
+
+                //helper write, so we can also inc count for each char written
+                void
+write_          (char c)
+                { if( write(c) ) count_++; else error_ = true; }
+
+                virtual void
+writeStr        (const char* str)
+                { while( *str ) write_( *str++ ); }
+
 };
 
 
@@ -253,6 +253,11 @@ operator<<      (bool v)
 
     setBwF(bin|bin0b|oct|oct0||dec|hex|hex0x,Hex,Hex0x, w, fillchar)
         w is setw - non sticky version
+
+    setBW0 - sticky W, '0' fill
+    setBw0 - '0 fill
+    setBW_ - sticky W, ' ' fill
+    setBw_ - ' ' fill
 
     all options remain set except for setw(), which is cleared
     after use, also <<clear resets all options
@@ -352,35 +357,225 @@ setBwF          (BASE_ base, int w, char fill = ' ')
                 return p.base(s.base).width(s.w).setfill(s.fill);
                 }
 
+                struct SetBW0_ { BASE_ base; int W; };
+                inline SetBW0_
+setBW0          (BASE_ base, int W)
+                {
+                return { base, W };
+                }
+                inline Printer&
+                operator<<(Printer& p, SetBW0_ s)
+                {
+                return p.base(s.base).width(s.W, true).setfill('0');
+                }
+
+                struct SetBw0_ { BASE_ base; int w; };
+                inline SetBw0_
+setBw0          (BASE_ base, int w)
+                {
+                return { base, w };
+                }
+                inline Printer&
+                operator<<(Printer& p, SetBw0_ s)
+                {
+                return p.base(s.base).width(s.w).setfill('0');
+                }
+
+                struct SetBW_ { BASE_ base; int W; };
+                inline SetBW_
+setBW_          (BASE_ base, int W)
+                {
+                return { base, W };
+                }
+                inline Printer&
+                operator<<(Printer& p, SetBW_ s)
+                {
+                return p.base(s.base).width(s.W, true).setfill(' ');
+                }
+
+                struct SetBw_ { BASE_ base; int w; };
+                inline SetBw_
+setBw_          (BASE_ base, int w)
+                {
+                return { base, w };
+                }
+                inline Printer&
+                operator<<(Printer& p, SetBw_ s)
+                {
+                return p.base(s.base).width(s.w).setfill(' ');
+                }
+
 }
 
 /*-------------------------------------------------------------
     Printer helpers for ansi codes
 
-    colors need fg or bg preceeding
-    << fg << BLUE << bg << WHITE
---------------------------------------------------------------*/
-namespace prn {
+    seem to need defines to do strings in an efficient way
 
-        SCA fg        {"\033[38;2;"};
-        SCA bg        {"\033[48;2;"};
-        SCA BLACK     {"0;0;0m"};
-        SCA RED       {"255;0;0m"};
-        SCA GREEN     {"0;255;0m"};
-        SCA YELLOW    {"255;255;0m"};
-        SCA BLUE      {"0;0;255m"};
-        SCA MAGENTA   {"255;0;255m"};
-        SCA CYAN      {"0;135;215m"};
-        SCA WHITE     {"255;255;255m"};
-        SCA ORANGE    {"255;99;71m"};
-        SCA PURPLE    {"143;0;211m"};
-        SCA CLS       {"\033[2J"};
-        SCA HOME      {"\033[1;1H"};
-        SCA RESET     {"\033[2J\033[1;1H\033[0m"};
-        SCA ITALIC    {"\033[3m"};
-        SCA NORMAL    {"\033[0m"};
-        SCA UNDERLINE {"\033[4m"};
-}
+    although they can be put into static constexpr strings, it
+    seems the advantages of defines outweighs the advantages
+    of keeping it all in c++ code
+
+    colors need FG or GB preceeding
+    << CLS << FG BLUE << BG WHITE << "fg blue, bg white"
+    << ITALIC << FG RGB(200,100,50) << "italic rgb(200,100,50)"
+--------------------------------------------------------------*/
+#define CSI             "\033["
+
+#define FG              CSI "38;2;"
+#define BG              CSI "48;2;"
+#define RGB(r,g,b)      #r";"#g";"#b"m"
+
+#define CLS             CSI "2J"
+#define HOME            CSI "1;1H"
+#define RESET           CLS HOME NORMAL
+#define ITALIC          CSI "3m"
+#define NORMAL          CSI "0m"
+#define UNDERLINE       CSI "4m"
+
+//SVG colors
+#define ALICE_BLUE               RGB(240,248,255)
+#define ANTIQUE_WHITE            RGB(250,235,215)
+#define AQUA                     RGB(0,255,255)
+#define AQUAMARINE               RGB(127,255,212)
+#define AZURE                    RGB(240,255,255)
+#define BEIGE                    RGB(245,245,220)
+#define BISQUE                   RGB(255,228,196)
+#define BLACK                    RGB(0,0,0)
+#define BLANCHED_ALMOND          RGB(255,235,205)
+#define BLUE                     RGB(0,0,255)
+#define BLUE_VIOLET              RGB(138,43,226)
+#define BROWN                    RGB(165,42,42)
+#define BURLY_WOOD               RGB(222,184,135)
+#define CADET_BLUE               RGB(95,158,160)
+#define CHARTREUSE               RGB(127,255,0)
+#define CHOCOLATE                RGB(210,105,30)
+#define CORAL                    RGB(255,127,80)
+#define CORNFLOWER_BLUE          RGB(100,149,237)
+#define CORNSILK                 RGB(255,248,220)
+#define CRIMSON                  RGB(220,20,60)
+#define CYAN                     RGB(0,255,255)
+#define DARK_BLUE                RGB(0,0,139)
+#define DARK_CYAN                RGB(0,139,139)
+#define DARK_GOLDEN_ROD          RGB(184,134,11)
+#define DARK_GRAY                RGB(169,169,169)
+#define DARK_GREEN               RGB(0,100,0)
+#define DARK_KHAKI               RGB(189,183,107)
+#define DARK_MAGENTA             RGB(139,0,139)
+#define DARK_OLIVE_GREEN         RGB(85,107,47)
+#define DARK_ORANGE              RGB(255,140,0)
+#define DARK_ORCHID              RGB(153,50,204)
+#define DARK_RED                 RGB(139,0,0)
+#define DARK_SALMON              RGB(233,150,122)
+#define DARK_SEA_GREEN           RGB(143,188,143)
+#define DARK_SLATE_BLUE          RGB(72,61,139)
+#define DARK_SLATE_GRAY          RGB(47,79,79)
+#define DARK_TURQUOISE           RGB(0,206,209)
+#define DARK_VIOLET              RGB(148,0,211)
+#define DEEP_PINK                RGB(255,20,147)
+#define DEEP_SKY_BLUE            RGB(0,191,255)
+#define DIM_GRAY                 RGB(105,105,105)
+#define DODGER_BLUE              RGB(30,144,255)
+#define FIRE_BRICK               RGB(178,34,34)
+#define FLORAL_WHITE             RGB(255,250,240)
+#define FOREST_GREEN             RGB(34,139,34)
+#define FUCHSIA                  RGB(255,0,255)
+#define GAINSBORO                RGB(220,220,220)
+#define GHOST_WHITE              RGB(248,248,255)
+#define GOLD                     RGB(255,215,0)
+#define GOLDEN_ROD               RGB(218,165,32)
+#define GRAY                     RGB(128,128,128)
+#define GREEN                    RGB(0,128,0)
+#define GREEN_YELLOW             RGB(173,255,47)
+#define HONEY_DEW                RGB(240,255,240)
+#define HOT_PINK                 RGB(255,105,180)
+#define INDIAN_RED               RGB(205,92,92)
+#define INDIGO                   RGB(75,0,130)
+#define IVORY                    RGB(255,255,240)
+#define KHAKI                    RGB(240,230,140)
+#define LAVENDER                 RGB(230,230,250)
+#define LAVENDER_BLUSH           RGB(255,240,245)
+#define LAWN_GREEN               RGB(124,252,0)
+#define LEMON_CHIFFON            RGB(255,250,205)
+#define LIGHT_BLUE               RGB(173,216,230)
+#define LIGHT_CORAL              RGB(240,128,128)
+#define LIGHT_CYAN               RGB(224,255,255)
+#define LIGHT_GOLDENROD_YELLOW   RGB(250,250,210)
+#define LIGHT_GRAY               RGB(211,211,211)
+#define LIGHT_GREEN              RGB(144,238,144)
+#define LIGHT_PINK               RGB(255,182,193)
+#define LIGHT_SALMON             RGB(255,160,122)
+#define LIGHT_SEA_GREEN          RGB(32,178,170)
+#define LIGHT_SKY_BLUE           RGB(135,206,250)
+#define LIGHT_SLATE_GRAY         RGB(119,136,153)
+#define LIGHT_STEEL_BLUE         RGB(176,196,222)
+#define LIGHT_YELLOW             RGB(255,255,224)
+#define LIME                     RGB(0,255,0)
+#define LIME_GREEN               RGB(50,205,50)
+#define LINEN                    RGB(250,240,230)
+#define MAGENTA                  RGB(255,0,255)
+#define MAROON                   RGB(128,0,0)
+#define MEDIUM_AQUAMARINE        RGB(102,205,170)
+#define MEDIUM_BLUE              RGB(0,0,205)
+#define MEDIUM_ORCHID            RGB(186,85,211)
+#define MEDIUM_PURPLE            RGB(147,112,219)
+#define MEDIUM_SEA_GREEN         RGB(60,179,113)
+#define MEDIUM_SLATE_BLUE        RGB(123,104,238)
+#define MEDIUM_SPRING_GREEN      RGB(0,250,154)
+#define MEDIUM_TURQUOISE         RGB(72,209,204)
+#define MEDIUM_VIOLET_RED        RGB(199,21,133)
+#define MIDNIGHT_BLUE            RGB(25,25,112)
+#define MINT_CREAM               RGB(245,255,250)
+#define MISTY_ROSE               RGB(255,228,225)
+#define MOCCASIN                 RGB(255,228,181)
+#define NAVAJO_WHITE             RGB(255,222,173)
+#define NAVY                     RGB(0,0,128)
+#define OLD_LACE                 RGB(253,245,230)
+#define OLIVE                    RGB(128,128,0)
+#define OLIVE_DRAB               RGB(107,142,35)
+#define ORANGE                   RGB(255,165,0)
+#define ORANGE_RED               RGB(255,69,0)
+#define ORCHID                   RGB(218,112,214)
+#define PALE_GOLDEN_ROD          RGB(238,232,170)
+#define PALE_GREEN               RGB(152,251,152)
+#define PALE_TURQUOISE           RGB(175,238,238)
+#define PALE_VIOLET_RED          RGB(219,112,147)
+#define PAPAYA_WHIP              RGB(255,239,213)
+#define PEACH_PUFF               RGB(255,218,185)
+#define PERU                     RGB(205,133,63)
+#define PINK                     RGB(255,192,203)
+#define PLUM                     RGB(221,160,221)
+#define POWDER_BLUE              RGB(176,224,230)
+#define PURPLE                   RGB(128,0,128)
+#define REBECCA_PURPLE           RGB(102,51,153)
+#define RED                      RGB(255,0,0)
+#define ROSY_BROWN               RGB(188,143,143)
+#define ROYAL_BLUE               RGB(65,105,225)
+#define SADDLE_BROWN             RGB(139,69,19)
+#define SALMON                   RGB(250,128,114)
+#define SANDY_BROWN              RGB(244,164,96)
+#define SEA_GREEN                RGB(46,139,87)
+#define SEA_SHELL                RGB(255,245,238)
+#define SIENNA                   RGB(160,82,45)
+#define SILVER                   RGB(192,192,192)
+#define SKY_BLUE                 RGB(135,206,235)
+#define SLATE_BLUE               RGB(106,90,205)
+#define SLATE_GRAY               RGB(112,128,144)
+#define SNOW                     RGB(255,250,250)
+#define SPRING_GREEN             RGB(0,255,127)
+#define STEEL_BLUE               RGB(70,130,180)
+#define TAN                      RGB(210,180,140)
+#define TEAL                     RGB(0,128,128)
+#define THISTLE                  RGB(216,191,216)
+#define TOMATO                   RGB(255,99,71)
+#define TURQUOISE                RGB(64,224,208)
+#define VIOLET                   RGB(238,130,238)
+#define WHEAT                    RGB(245,222,179)
+#define WHITE                    RGB(255,255,255)
+#define WHITE_SMOKE              RGB(245,245,245)
+#define YELLOW                   RGB(255,255,0)
+#define YELLOW_GREEN             RGB(154,205,50)
+
 
 
 //comment to prevent bringing in prn namespace to global namespace

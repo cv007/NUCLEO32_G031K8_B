@@ -39,8 +39,8 @@ main            ()
                         lastc = encoder1.count();
                         uart
                             << clear
-                            << fg << GREEN << "encoder1: "
-                            << fg << (lastc >= 0 ? WHITE : CYAN)
+                            << FG LIGHT_GREEN << "encoder1: "
+                            << FG << (lastc >= 0 ? BLUE_VIOLET : DEEP_SKY_BLUE)
                             << setw(4) << lastc
                             << setfill('0') << bin << " [" << setw(8) << lastc << "]" << NORMAL << endl;
                         board.led.toggle();
