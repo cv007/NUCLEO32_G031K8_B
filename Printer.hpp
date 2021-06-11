@@ -11,6 +11,7 @@
 
     simple class to inherit for cout style 'printing'
     via virtual write function which has a signature of-
+
         bool write(const char)
         write return value is false if there is an error
 
@@ -42,7 +43,7 @@ error           (){ return error_; }
                 //set to 1 or 2 chars you want for {N}ewline
                 //NL_[2] already 0, cannot change so no need to set
                 Printer&
-setNewline      (const char a, const char b = 0) { NL_[0] = a; NL_[1] = b; return *this; }
+newline        (const char a, const char b = 0) { NL_[0] = a; NL_[1] = b; return *this; }
 
 
                 // << options
@@ -58,6 +59,7 @@ start           ()
                 optionB_ = 10;
                 optionFIL_ = ' ';
                 optionW_ = 0;
+                optionWMAX_ = 0;
                 optionSB_ = false;
                 stickyW_ = false;
                 optionBA_ = false;
@@ -71,6 +73,14 @@ width           (int v, bool sticky = false)
                 {
                 optionW_ = v > OPTIONW_MAX ? OPTIONW_MAX : v;
                 stickyW_ = sticky;
+                return *this;
+                }
+
+                // << setwmax(40) - maximum width
+                Printer&
+widthmax        (unsigned int v)
+                {
+                optionWMAX_ = v;
                 return *this;
                 }
 
@@ -105,7 +115,7 @@ justifyleft     (bool tf) { optionJL_ = tf; return *this; }
 
                 // << endl
                 Printer&
-writeNL         () { writeStr( NL_ ); return *this; }
+newline         () { writeStr( NL_ ); return *this; }
 
 
                 // operator<<
@@ -116,10 +126,11 @@ writeNL         () { writeStr( NL_ ); return *this; }
 operator<<      (const char* fmt)
                 {
                 auto w = optionW_;
-                int i = w ? __builtin_strlen( fmt ) : 0;
-                auto fill = [&]{ while( w-- > i ) write_( optionFIL_ ); };
+                auto wmax = optionWMAX_; //if 0, first --wmax will make it 0xFFFFFFFF
+                u32 i = w ? __builtin_strlen( fmt ) : 0;
+                auto fill = [&]{ while( (w-- > i) and --wmax ) write_( optionFIL_ ); };
                 if( not optionJL_ ) fill(); //justify right, fill first
-                while( *fmt ) write_( *fmt++ );
+                while( *fmt and --wmax ) write_( *fmt++ );
                 if( optionJL_ ) fill();//justify left, fill last
                 if( not stickyW_ ) optionW_ = 0;
                 return *this;
@@ -132,7 +143,7 @@ operator<<      (u32 v)
                 auto div = optionB_; //2,8,10,16
                 auto w = optionW_;
                 char ucbm = optionUC_ ? compl (1<<5) : 0; //uppercase bitmask
-                auto i = 0;
+                u32 i = 0;
                 char buf[w > 34 ? w : 34];
                 if( div == 10 and optionNEG_ ) v = -v;
                 while( v ){
@@ -157,7 +168,7 @@ operator<<      (u32 v)
                         }
                 };
                 if( optionFIL_ == '0' ){ fill(); xtras(); } else { xtras(); fill(); }
-                while( --i >= 0 ) write_( buf[i] );
+                while( --i != (u32)-1 ) write_( buf[i] );
                 optionNEG_ = false;
                 if( not stickyW_ ) optionW_ = 0;
                 return *this;
@@ -202,10 +213,11 @@ operator<<      (bool v)
                 SCA OPTIONW_MAX{ 128 }; //maximum value of optionW_
 
                 char NL_[3]     {"\r\n"};   //newline combo, can be change at runtime
-                int  count_     { 0 };      //number of chars printed
+                u32  count_     { 0 };      //number of chars printed
                 bool error_     { false };  //store any errors along the way
-                char optionW_   { 0 };      //minimum width
-                int  optionB_   { 10 };     //base 2,8,10,16
+                u32  optionW_   { 0 };      //minimum width
+                u32  optionWMAX_{ 0 };      //maximum width
+                u32  optionB_   { 10 };     //base 2,8,10,16
                 bool optionUC_  { false };  //uppercase?
                 bool optionSB_  { false };  //showbase? 0x 0 0b
                 char optionFIL_ { ' ' };    //setfill char
@@ -214,6 +226,7 @@ operator<<      (bool v)
                 bool optionPOS_ { false };  //show + for positive dec
                 bool optionBA_  { false };  //bool alpha? "true"/"false", 1,0
                 bool optionJL_  { false };  //justify left?
+
 
                 //helper write, so we can also inc count for each char written
                 void
@@ -230,36 +243,28 @@ writeStr        (const char* str)
 /*-------------------------------------------------------------
     Printer helpers for <<
 
-    setw(n)         set minimum width n (max value is specified in Printer class)
-    setW(n)         a 'sticky' version of setw (value remains after use)
-                    (setw() will clear the sticky)
+    a limit is specified in Printer class for setw
+
+    setw(w)         set minimum width n
+    setW(w)         a 'sticky' version of setw (value remains after use)
+                    (setw() or clear will clear the width value)
+    setwmax(n)      set maximum width of output (0 is no max limit)
     setfill(c)      set fill char, default is ' '
     endl            write newline combo as specified in Printer class
     bin             set base to 2
-    bin0b           with showbase
+    bin0b               with showbase
     oct             set base to 8
-    oct0            with showbase
+    oct0                with showbase
     dec             set base to 10 (default)
     hex             set base to 16
-    hex0x           with showbase
-    Hex             uppercase
-    Hex0x           uppercase with showbase
+    hex0x               with showbase
+    Hex                 uppercase
+    Hex0x               uppercase with showbase
     clear           set options to default, clear count, error
     noshowpos       no + for dec
     showpos         show + for dec that are positive
     showalpha       bool is "true" or "false"
     noshowalpha     bool is 1 or 0 (treated as unsigned int)
-
-    setBWF(bin|bin0b|oct|oct0||dec|hex|hex0x,Hex,Hex0x, W, fillchar)
-        W is setW sticky version
-
-    setBwF(bin|bin0b|oct|oct0||dec|hex|hex0x,Hex,Hex0x, w, fillchar)
-        w is setw - non sticky version
-
-    setBW0 - sticky W, '0' fill
-    setBw0 - '0 fill
-    setBW_ - sticky W, ' ' fill
-    setBw_ - ' ' fill
 
     all options remain set except for setw(), which is cleared
     after use, also <<clear resets all options
@@ -271,32 +276,34 @@ namespace prn {
 setw            (int n) { return { n }; }
                 inline Printer&
                 operator<<(Printer& p, Setw_ w)
-                {
-                return p.width(w.n);
-                }
+                { return p.width(w.n); }
 
                 struct SetW_ { int n; };
                 inline SetW_
 setW            (int n) { return { n }; }
                 inline Printer&
                 operator<<(Printer& p, SetW_ w)
-                {
-                return p.width(w.n, true); //sticky width = true
-                }
+                { return p.width(w.n, true); } //sticky width = true
+
+                struct SetwMax_ { int n; };
+                inline SetwMax_
+setwmax         (int n) { return { n }; }
+                inline Printer&
+                operator<<(Printer& p, SetwMax_ w)
+                { return p.widthmax(w.n); }
 
                 struct Setfill_ { char c; };
                 inline Setfill_
 setfill         (char c = ' ') { return { c }; }
                 inline Printer&
                 operator<<(Printer& p, Setfill_ c)
-                {
-                return p.setfill( c.c );
-                }
+                { return p.setfill( c.c ); }
 
                 enum ENDL_ {
 endl            };
                 inline Printer&
-                operator<<(Printer& p, ENDL_ v) { (void)v; return p.writeNL(); }
+                operator<<(Printer& p, ENDL_ v)
+                { (void)v; return p.newline(); }
 
                 enum BASE_ {
 bin             = 2,
@@ -309,31 +316,36 @@ hex0x           = 17,   //0x, lowercase
 Hex             = 18,   //uppercase
 Hex0x           = 19 }; //0x, uppercase
                 inline Printer&
-                operator<<(Printer& p, BASE_ v) { return p.base(v); }
+                operator<<(Printer& p, BASE_ v)
+                { return p.base(v); }
 
                 enum CLEAR_ {
 clear           };
                 inline Printer&
-                operator<<(Printer& p, CLEAR_ v) { (void)v; return p.start(); }
+                operator<<(Printer& p, CLEAR_ v)
+                { (void)v; return p.start(); }
 
 
                 enum POSITIVE_ {
 noshowpos,
 showpos         };
                 inline Printer&
-                operator<<(Printer& p, POSITIVE_ v) { return p.positive( v ); }
+                operator<<(Printer& p, POSITIVE_ v)
+                { return p.positive( v ); }
 
                 enum ALPHA_ {
 noshowalpha,
 showalpha       };
                 inline Printer&
-                operator<<(Printer& p, ALPHA_ v) { return p.boolalpha( v ); }
+                operator<<(Printer& p, ALPHA_ v)
+                { return p.boolalpha( v ); }
 
                 enum JUSTIFY_ {
 right,
 left            };
                 inline Printer&
-                operator<<(Printer& p, JUSTIFY_ v) { return p.justifyleft( v ); }
+                operator<<(Printer& p, JUSTIFY_ v)
+                { return p.justifyleft( v ); }
 
 }
 
