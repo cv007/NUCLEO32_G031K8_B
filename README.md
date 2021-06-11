@@ -6,3 +6,5 @@
 
 #### Using these manufacurer and cmsis headers is a good compromise- we get to create C++ code and do not have to deal with creating our own register structs along with creating our own peripheral addresses. The register structs we create would be nicer because they would have bitfields, which eliminate mistakes in dealing with subsets of registers, and can still be done if wanted.
 
+#### Also added a Printer class which used snprintf to do the work, and it would simply use the stack for buffer space on each use. Since it blocks on the virtual write function (hardware or software buffer is doing the blocking), the stack is a good place for the buffer. I then changed the Printer class to a cout style, which requires no stdio functions and uses no buffer. Will see how that goes. The simple encoder example in main.cpp compiles to about 3.6k with the cout Printer version, but I do not recall what the snprintf version was (may have been a little larger).
+
