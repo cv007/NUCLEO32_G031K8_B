@@ -42,7 +42,7 @@ main            ()
                             << FG LIGHT_GREEN << "encoder1: "
                             << FG << (lastc >= 0 ? BLUE_VIOLET : DEEP_SKY_BLUE)
                             << setw(4) << lastc
-                            << setfill('0') << bin << " [" << setw(8) << lastc << "]" << NORMAL << endl;
+                            << setfill('0') << bin << " [" << setw(8) << (lastc bitand 0xFF) << "]" << NORMAL << endl;
                         board.led.toggle();
                         delayMS(5);
                         board.led.toggle();

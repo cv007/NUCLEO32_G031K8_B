@@ -133,7 +133,8 @@ operator<<      (u32 v)
                 auto w = optionW_;
                 char ucbm = optionUC_ ? compl (1<<5) : 0; //uppercase bitmask
                 auto i = 0;
-                char buf[w?w:32];
+                char buf[w > 34 ? w : 34];
+                if( div == 10 and optionNEG_ ) v = -v;
                 while( v ){
                     auto c = hexTable[v % div];
                     if( c > '9' and ucbm ) c and_eq ucbm; //to uppercase
@@ -145,8 +146,10 @@ operator<<      (u32 v)
                 //else add fill first
                 auto fill = [&](){ while( i < w ) buf[i++] = optionFIL_; };
                 auto xtras = [&](){
-                    if( optionNEG_ ) buf[i++] = '-'; //negative dec
-                    else if( div == 10 and optionPOS_ ) buf[i++] = '+'; //dec is positive and + wanted
+                    if( div == 10 ) {
+                        if( optionNEG_ ) buf[i++] = '-'; //negative dec
+                        else if( optionPOS_ ) buf[i++] = '+'; //dec is positive and + wanted
+                        }
                     if( optionSB_ ){ //showbase
                         if( optionB_ == 16 ){ buf[i++] = 'x'; buf[i++] = '0'; }
                         if( optionB_ == 8 ){ buf[i++] = '0'; }
@@ -164,9 +167,8 @@ operator<<      (u32 v)
                 Printer&
 operator<<      (i32 v)
                 {
-                u32 vu = v < 0 ? -v : v;
-                if( v < 0 and optionB_ == 10 ) optionNEG_ = true;
-                return operator<<( vu );
+                if( v < 0 ) optionNEG_ = true;
+                return operator<<( (u32)v );
                 }
 
                 //unsigned char
@@ -230,7 +232,7 @@ writeStr        (const char* str)
 
     setw(n)         set minimum width n (max value is specified in Printer class)
     setW(n)         a 'sticky' version of setw (value remains after use)
-                    (a setw() will clear the sticky)
+                    (setw() will clear the sticky)
     setfill(c)      set fill char, default is ' '
     endl            write newline combo as specified in Printer class
     bin             set base to 2
@@ -284,7 +286,7 @@ setW            (int n) { return { n }; }
 
                 struct Setfill_ { char c; };
                 inline Setfill_
-setfill         (char c) { return { c }; }
+setfill         (char c = ' ') { return { c }; }
                 inline Printer&
                 operator<<(Printer& p, Setfill_ c)
                 {
@@ -333,79 +335,8 @@ left            };
                 inline Printer&
                 operator<<(Printer& p, JUSTIFY_ v) { return p.justifyleft( v ); }
 
-                struct SetBWF_ { BASE_ base; int W; char fill; };
-                inline SetBWF_
-setBWF          (BASE_ base, int W, char fill = ' ')
-                {
-                return { base, W, fill };
-                }
-                inline Printer&
-                operator<<(Printer& p, SetBWF_ s)
-                {
-                return p.base(s.base).width(s.W, true).setfill(s.fill);
-                }
-
-                struct SetBwF_ { BASE_ base; int w; char fill; };
-                inline SetBwF_
-setBwF          (BASE_ base, int w, char fill = ' ')
-                {
-                return { base, w, fill };
-                }
-                inline Printer&
-                operator<<(Printer& p, SetBwF_ s)
-                {
-                return p.base(s.base).width(s.w).setfill(s.fill);
-                }
-
-                struct SetBW0_ { BASE_ base; int W; };
-                inline SetBW0_
-setBW0          (BASE_ base, int W)
-                {
-                return { base, W };
-                }
-                inline Printer&
-                operator<<(Printer& p, SetBW0_ s)
-                {
-                return p.base(s.base).width(s.W, true).setfill('0');
-                }
-
-                struct SetBw0_ { BASE_ base; int w; };
-                inline SetBw0_
-setBw0          (BASE_ base, int w)
-                {
-                return { base, w };
-                }
-                inline Printer&
-                operator<<(Printer& p, SetBw0_ s)
-                {
-                return p.base(s.base).width(s.w).setfill('0');
-                }
-
-                struct SetBW_ { BASE_ base; int W; };
-                inline SetBW_
-setBW_          (BASE_ base, int W)
-                {
-                return { base, W };
-                }
-                inline Printer&
-                operator<<(Printer& p, SetBW_ s)
-                {
-                return p.base(s.base).width(s.W, true).setfill(' ');
-                }
-
-                struct SetBw_ { BASE_ base; int w; };
-                inline SetBw_
-setBw_          (BASE_ base, int w)
-                {
-                return { base, w };
-                }
-                inline Printer&
-                operator<<(Printer& p, SetBw_ s)
-                {
-                return p.base(s.base).width(s.w).setfill(' ');
-                }
-
 }
+
 
 /*-------------------------------------------------------------
     Printer helpers for ansi codes
