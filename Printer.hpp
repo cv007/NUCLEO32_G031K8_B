@@ -1,8 +1,6 @@
 //Printer.hpp
 #pragma once
 
-#include <cstdarg>
-
 #include "MyStm32.hpp"
 
 
@@ -58,7 +56,7 @@ newline         (const char a, const char b = 0) { NL_[0] = a; NL_[1] = b; retur
 
                 // reset options,  << clear
                 PrinterT&
-start           ()
+clear           ()
                 {
                 count_ = 0;
                 errors_ = 0;
@@ -193,6 +191,24 @@ operator<<      (i32 v)
                 return operator<<( (u32)v );
                 }
 
+                //signed short
+                PrinterT&
+operator<<      (i16 v)
+                {
+                return operator<<( (i32)v );
+                }
+
+                //unsigned short
+                PrinterT&
+operator<<      (u16 vu)
+                {
+                return operator<<( (u32)vu );
+                }
+
+                //char
+                PrinterT&
+operator<<      (u8 vu) { return operator<<( (u32)vu ); }
+
                 //char
                 PrinterT&
 operator<<      (char v) { write_( v bitand 0xFF ); return *this; }
@@ -235,7 +251,7 @@ operator<<      (bool v)
 write_          (char c)
                 { if( write(c) ) count_++; else errors_++; }
 
-                virtual void
+                void
 writeStr        (const char* str)
                 { while( *str ) write_( *str++ ); }
 
@@ -324,7 +340,7 @@ hex             = 16 };
 clear           };
                 inline PrinterT&
                 operator<<(PrinterT& p, CLEAR_prn e)
-                { (void)e; return p.start(); }
+                { (void)e; return p.clear(); }
 
 
                 enum POSITIVE_prn {
@@ -372,7 +388,7 @@ showbase        };
     strings in an efficient way, as they have the advantage
     of being string literals
 
-    colors need FG or GB preceeding
+    colors need FG or BG preceeding
     << CLS << FG BLUE << BG WHITE << "fg blue, bg white"
     << ITALIC << FG RGB(200,100,50) << "italic rgb(200,100,50)"
 --------------------------------------------------------------*/
