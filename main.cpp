@@ -39,7 +39,7 @@ main            ()
                         lastc = encoder1.count();
                         uart
                             << clear
-                            << FG LIGHT_GREEN << "encoder1: "
+                            << FG HOT_PINK << "encoder1: "
                             << FG << (lastc >= 0 ? BLUE_VIOLET : DEEP_SKY_BLUE)
                             << setw(4) << lastc
                             << setfill('0') << bin << " [" << setw(8) << (lastc bitand 0xFF) << "]" << NORMAL << endl;
@@ -69,14 +69,14 @@ main            ()
                 {
                 delayMS( 15000 );
                 uart
-                    << set( hex, showbase, uppercase, '0' ) << setW(10)
+                    << setfill('0') << showbase << hex << setw(10)
                     << endl
-                    <<    "HFSR: " << *(u32*)0xE000ED2C << endl
-                    <<    "CFSR: " << *(u32*)0xE000ED28 << endl
-                    <<    "UFSR: " << *(u32*)0xE000ED2A << endl
-                    <<  "rccCSR: " << RCC->CSR << endl
-                    << "scbICSR: " << SCB->ICSR << endl
-                    <<    "VTOR: " << SCB->VTOR << endl << clear;
+                    << setw(10) <<    "HFSR: " << *(u32*)0xE000ED2C << endl
+                    << setw(10) <<    "CFSR: " << *(u32*)0xE000ED28 << endl
+                    << setw(10) <<    "UFSR: " << *(u32*)0xE000ED2A << endl
+                    << setw(10) <<  "rccCSR: " << RCC->CSR << endl
+                    << setw(10) << "scbICSR: " << SCB->ICSR << endl
+                    << setw(10) <<    "VTOR: " << SCB->VTOR << endl << clear;
                 for( u32 i = 0; i < 32; i++ ) {
                     uart
                         << setw(5) << "[" setw(2) << i << "]: "
@@ -130,25 +130,24 @@ main            ()
                 while( true ){
                     delayMS( 5000 );
                     uart
-                        << setW(10)
-                        << "count: " << count++ << endl
-                        << set( hex, showbase, uppercase, '0' )
-                        << "RTSR1: " << EXTI->RTSR1 << endl
-                        << "FTSR1: " << EXTI->FTSR1 << endl
-                        << "RPR1: " << EXTI->RPR1 << endl
-                        << "FPR1: " << EXTI->FPR1 << endl
-                        << "EXTICR: " << EXTI->EXTICR[0] << endl
-                        << ": " << EXTI->EXTICR[1] << endl
-                        << ": " << EXTI->EXTICR[2] << endl
-                        << ": " << EXTI->EXTICR[3] << endl
-                        << "IMR1: " << EXTI->IMR1 << endl
-                        << "EMR1: " << EXTI->EMR1 << endl
-                        << "ISER: " << NVIC->ISER[0U] << endl
-                        << "ISPR: " << NVIC->ISPR[0U] << endl
-                        << "scbICSR: " << SCB->ICSR << endl
-                        << "ITLINE7: " << SYSCFG->IT_LINE_SR[7] << endl
-                        << "VTOR: " << SCB->VTOR << endl
-                        << "[23]: " << ((u32*)(SCB->VTOR))[23] << endl
+                        << setw(10) << "count: " << count++ << endl
+                        << hex << showbase << uppercase << setfil('0')
+                        << setw(10) << "RTSR1: " << EXTI->RTSR1 << endl
+                        << setw(10) << "FTSR1: " << EXTI->FTSR1 << endl
+                        << setw(10) << "RPR1: " << EXTI->RPR1 << endl
+                        << setw(10) << "FPR1: " << EXTI->FPR1 << endl
+                        << setw(10) << "EXTICR: " << EXTI->EXTICR[0] << endl
+                        << setw(10) << ": " << EXTI->EXTICR[1] << endl
+                        << setw(10) << ": " << EXTI->EXTICR[2] << endl
+                        << setw(10) << ": " << EXTI->EXTICR[3] << endl
+                        << setw(10) << "IMR1: " << EXTI->IMR1 << endl
+                        << setw(10) << "EMR1: " << EXTI->EMR1 << endl
+                        << setw(10) << "ISER: " << NVIC->ISER[0U] << endl
+                        << setw(10) << "ISPR: " << NVIC->ISPR[0U] << endl
+                        << setw(10) << "scbICSR: " << SCB->ICSR << endl
+                        << setw(10) << "ITLINE7: " << SYSCFG->IT_LINE_SR[7] << endl
+                        << setw(10) << "VTOR: " << SCB->VTOR << endl
+                        << setw(10) << "[23]: " << ((u32*)(SCB->VTOR))[23] << endl
 
                     //startup.cpp will store scbICSR value first thing in reset function
                     //and the value should be 0, but is 3 after programming (exception irq is active)
@@ -202,8 +201,9 @@ switchValues    (u32& swv) //return true if switches changed
 printInfo       (u32 swv, u32 t)
                 {
                 uart
-                    << "switches: " << setfill('0') << bin << setw(4) << swv
-                    << dec << " delay: " << t << endl;
+                    << "switches: " << setfill('0') << bin
+                    << setw(4) << swv
+                    << " delay: " << dec << t << endl;
                 }
 
                 int
