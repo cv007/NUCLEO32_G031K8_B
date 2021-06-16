@@ -34,6 +34,9 @@ class Printer {
     public:
 //-------------|
 
+//change all PrinterT functions to noinline
+#define PrinterT [[ gnu::noinline ]] PrinterT
+
                 using u32 = uint32_t;
                 using i32 = int32_t;
 
@@ -255,7 +258,80 @@ write_          (char c)
 writeStr        (const char* str)
                 { while( *str ) write_( *str++ ); }
 
+#undef PrinterT
+
 };
+
+
+/*------------------------------------------------------------------------------
+    Null Printer device - a black hole
+------------------------------------------------------------------------------*/
+class NullPrinter : public Printer {
+
+                //Printer virtual write, 1 char
+                virtual bool
+write           (const char c){ (void)c; return 0; }
+
+};
+
+
+/*------------------------------------------------------------------------------
+    Buffer Printer device - like snprintf
+
+    BufPrinter<32> bp;  //32 bytes allocated for buffer, includes 0 terminator
+                        //so only 31 useful
+
+    bp << "test" << 123; // buf = "test123" 0 terminated
+    can use bp in a Printer <<
+    dev << bp << 456; // prints "test123456"
+    bp.clear() << "hello"; // buf = "hello" 0 terminated
+------------------------------------------------------------------------------*/
+template<unsigned N>
+class BufPrinter : public Printer {
+
+//-------------|
+    public:
+//-------------|
+
+BufPrinter      (){ buf_[0] = 0; }
+
+                auto&
+buf             (){ return buf_; }
+
+                auto
+clear           (){ buf_[0] = 0; count_ = 0; return *this; }
+
+//-------------|
+    private:
+//-------------|
+
+                //Printer virtual write, 1 char
+                virtual bool
+write           (const char c)
+                {
+                if( count_ < (N-1) ) {
+                    buf_[count_++] = c;
+                    buf_[count_] = 0;
+                    return true;
+                    }
+                return false;
+                }
+
+                char buf_[N?N:1]; //at least 1, so is terminated
+                u16 count_{0};
+
+};
+
+namespace prn { //so can << bufprinter  and get the buffer printed out
+
+                template<unsigned N>
+                inline PrinterT&
+                operator<<(PrinterT& p, BufPrinter<N>& b)
+                { p.operator<<( b.buf() ); return p; }
+
+}
+
+
 
 
 /*-------------------------------------------------------------
