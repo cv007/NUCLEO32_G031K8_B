@@ -2,18 +2,20 @@
 #pragma once
 
 #include "MyStm32.hpp"
-#include "Printer.hpp"
+#include "oStreamer.hpp"
 #include "Gpio.hpp"
 
 /*=============================================================
     Uart class- quick and simple, tx only,
-    inherit Printer for printf style use via .print
+    inherit uPut for printf style use via .print
 =============================================================*/
-struct Uart : Printer {
+struct Uart : oStreamer {
 
 //-------------|
     private:
 //-------------|
+
+                using u32 = uint32_t;
 
                 USART_TypeDef& reg_;
 
@@ -22,7 +24,7 @@ isTxFull        (){ return (reg_.ISR bitand (1<<7)) == 0; }
 
                 //blocking
                 virtual bool
-write           (const char c)
+put             (const char c)
                 {
                 while( isTxFull() ){}
                 reg_.TDR = c;
@@ -40,7 +42,8 @@ txOn            () { reg_.CR1 or_eq 9; } //TE=1,UE=1
 //-------------|
 
                 //struct with info about specific uart (only tx/rx pin)
-                using usartT = struct {
+                using
+usartT          = struct {
                 u32             baseAddress;
                 PINS::PIN       txPin;
                 PINS::ALTFUNC   txAltFunc;

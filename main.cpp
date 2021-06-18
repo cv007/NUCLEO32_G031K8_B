@@ -38,11 +38,10 @@ main            ()
                     if( lastc != encoder1.count() ) {
                         lastc = encoder1.count();
                         uart
-                            << clear
-                            << FG HOT_PINK << "encoder1: "
+                            << FG LIGHT_SKY_BLUE << "encoder1: "
                             << FG << (lastc >= 0 ? BLUE_VIOLET : DEEP_SKY_BLUE)
                             << setw(4) << lastc
-                            << setfill('0') << bin << " [" << setw(8) << (lastc bitand 0xFF) << "]" << NORMAL << endl;
+                            << " [" << bin << setwf(8,'0') << (lastc bitand 0xFF) << "]" NORMAL << endlc;
                         board.led.toggle();
                         delayMS(5);
                         board.led.toggle();
