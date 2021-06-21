@@ -41,7 +41,7 @@ main            ()
                             << FG LIGHT_SKY_BLUE << "encoder1: "
                             << FG << (lastc >= 0 ? BLUE_VIOLET : DEEP_SKY_BLUE)
                             << setw(4) << lastc
-                            << " [" << bin << setwf(8,'0') << (lastc bitand 0xFF) << "]" NORMAL << endlc;
+                            << " [" << bin << setwf(8,'0') << (lastc bitand 0xFF) << "]" ANSI_NORMAL << endlr;
                         board.led.toggle();
                         delayMS(5);
                         board.led.toggle();

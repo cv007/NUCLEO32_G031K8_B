@@ -1,15 +1,14 @@
-//Uart.hpp
-#pragma once
+#pragma once //Uart.hpp
 
 #include "MyStm32.hpp"
-#include "oStreamer.hpp"
+#include "Format.hpp"
 #include "Gpio.hpp"
 
 /*=============================================================
     Uart class- quick and simple, tx only,
     inherit uPut for printf style use via .print
 =============================================================*/
-struct Uart : oStreamer {
+struct Uart : Format {
 
 //-------------|
     private:
