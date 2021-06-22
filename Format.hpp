@@ -495,10 +495,8 @@ showbase        };
 
 
 //combo helpers to reduce some verbosity, macros seem to be the
-//easiest instead of creating a bunch more of the above
-//plus they all use the standard cout properties so these
-//also work on the pc when testing (except for the endlc, since
-//reset is not standard so would need to be changed)
+//easiest instead of creating more of the above which will end
+//up doing exactly the same thing, and can be easily changed
 #define setwf(n,c)      fmt::setw(n) << fmt::setfill(c)
 #define hex0x           fmt::hex << fmt::showbase
 #define Hex             fmt::hex << fmt::uppercase
@@ -508,6 +506,8 @@ showbase        };
 #define endl2           fmt::endl << fmt::endl
 #define endl2r          fmt::endl << fmt::endl << fmt::reset
 #define cdup(c,n)       setwf(n,c) << ""
+//if wanted to translate to the pc, then replace fmt:: with std::,
+//and define a reset to clear flags with std::setf(v)
 
 }
 
@@ -515,12 +515,28 @@ showbase        };
 
 /*------------------------------------------------------------------------------
     Null Format device - a black hole
-        overrides all the public functions in Format,
-        but none of them do anything here, so compiler will optimize away
-        all uses
+        overrides all the public functions in Format with empty functions,
+        so compiler will optimize away all uses of Format for an instance
+        which inherits Format
 
-    // Usart debugDev;      //not wanted anymore
-    NullFormat debugDev;    //so make it a NullFormat device
+    one way to use this-
+
+    using UartFormatT = Format;
+    //using UartFormatT = NullFormat; //not wanted
+    class Uart : public UartFormatT {
+
+    Uart u;
+    u.init( 230400 ); //will still run the Uart init function
+    u << 123 << endl; //will depend on UartFormatT,
+                      //optimizes away if set to NullFormat
+
+
+    using DebuRttT = DevRtt<0>; //debug output wanted
+    // using DebuRttT = NullStreamer; //if want no debug output
+    inline DebuRttT DebugRtt; //uses type specified above
+
+    DebugRtt << FG BLUE << "Booting..." << endl; //either outputs, or optimized away
+
 ------------------------------------------------------------------------------*/
 class NullFormat : public Format {
 
