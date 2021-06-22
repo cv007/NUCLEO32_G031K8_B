@@ -16,7 +16,7 @@
     A0 and B0 for example, or if more than one encoder in use all pins
     used have to be unique pin numbers
 
-    create inline Encoder instances at end of file-
+    (can) create inline Encoder instances at end of file-
     inline instance(s) in header (at end of this file)
 
         inline Encoder encoder1{PB40, PB5}; //EXTI4_15_IRQn
