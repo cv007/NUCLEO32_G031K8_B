@@ -38,7 +38,7 @@ main            ()
                     if( lastc != encoder1.count() ) {
                         lastc = encoder1.count();
                         uart
-                            << FG LIGHT_SKY_BLUE << "encoder1: "
+                            << FG DARK_ORANGE << "encoder1: "
                             << FG << (lastc >= 0 ? BLUE_VIOLET : DEEP_SKY_BLUE)
                             << setw(4) << lastc
                             << " [" << bin << setwf(8,'0') << (lastc bitand 0xFF) << "]" ANSI_NORMAL << endlr;

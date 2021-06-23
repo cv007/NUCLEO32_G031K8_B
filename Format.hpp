@@ -128,9 +128,8 @@ widthmax        (const unsigned int v)
 base            (const int v)
                 {
                 if( v >= 16 ) optionB_ = 16;
-                else optionB_ = v bitand 10;//-> base 2,8,10
-                //if 1,4,5 sneaked in, switch resulting 0 to base 10
-                if( not optionB_ ) optionB_ = 10;
+                else optionB_ = v bitand 10 ? v bitand 10 : 10;//-> base 2,8,10, else 10
+                //(if 1,4,5 sneaked in, switch resulting 0 to base 10)
                 return *this;
                 }
 
