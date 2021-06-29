@@ -37,6 +37,12 @@
         [](){ encoder1.isr(); encoder2.isr(); }
     );
 
+    cannot put the .isr() function directly in the vector table as an
+    encode instance is required (encode class not static), so will need to 
+    create a function that calls .isr(), and in the above these functions are
+    lambda functions which cal be used to dispatch any calls needed to 
+    service that interrupt
+
 -----------------------------------------------------------------------------*/
 class Encoder {
 
