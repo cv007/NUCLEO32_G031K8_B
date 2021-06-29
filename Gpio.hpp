@@ -20,14 +20,12 @@ SPEED           { SPEED0, SPEED1, SPEED2, SPEED3 }; //VLOW to VHIGH
 ALTFUNC         { AF0, AF1, AF2, AF3, AF4, AF5, AF6, AF7 };
                 enum
 INVERT          { HIGHISON, LOWISON };
-                enum
-IRQMODE         { IRQOFF, RISING, FALLING, BOTHEDGES };
 
 };
 
-/*=============================================================
+/*--------------------------------------------------------------
     GpioPort class
-=============================================================*/
+--------------------------------------------------------------*/
 struct GpioPort {
 
 //-------------|
@@ -65,9 +63,9 @@ lock            (u16 bm)
 
 };
 
-/*=============================================================
+/*--------------------------------------------------------------
     GpioPin class
-=============================================================*/
+--------------------------------------------------------------*/
 struct GpioPin : GpioPort {
 
 //-------------|
@@ -90,15 +88,19 @@ GpioPin         (PINS::PIN pin, PINS::INVERT inv = PINS::HIGHISON, bool clken = 
                 if( clken ) enable();
                 }
 
-                //properities
-                II GpioPin&
+// properties
+
+                II auto
+lock            () { GpioPort::lock(pinmask_); return *this; }  //lock return value ignored
+
+                II auto
 mode            (PINS::MODE e)
                 {
                 reg_.MODER = (reg_.MODER bitand compl (3<<(2*pin_))) bitor (e<<(2*pin_));
                 return *this;
                 }
 
-                II GpioPin&
+                II auto
 outType         (PINS::OTYPE e)
                 {
                 if( e == PINS::ODRAIN ) reg_.OTYPER or_eq pinmask_;
@@ -106,7 +108,7 @@ outType         (PINS::OTYPE e)
                 return *this;
                 }
 
-                II GpioPin&
+                II auto
 pull            (PINS::PULL e)
                 {
                 auto bp = 2*pin_;
@@ -116,7 +118,7 @@ pull            (PINS::PULL e)
                 return *this;
                 }
 
-                II GpioPin&
+                II auto
 speed           (PINS::SPEED e)
                 {
                 auto bp = 2*pin_;
@@ -126,7 +128,7 @@ speed           (PINS::SPEED e)
                 return *this;
                 }
 
-                II GpioPin&
+                II auto
 altFunc         (PINS::ALTFUNC e)
                 {
                 auto& r = reg_.AFR[pin_>7 ? 1 : 0];
@@ -135,9 +137,10 @@ altFunc         (PINS::ALTFUNC e)
                 auto bmset = e<<bp;
                 r = (r bitand bmclr) bitor bmset;
                 mode( PINS::ALTERNATE );
-                return *this;
+                return *this; 
                 }
 
+// irq
 
                 //get rising flag, clear if set
                 II bool
@@ -166,14 +169,14 @@ isFlag          ()
                 return r or f;
                 }
 
-                II GpioPin&
+                II auto
 irqOff          () 
                 { 
                 EXTI->IMR1 and_eq compl pinmask_;
                 return *this; 
                 }
 
-                II GpioPin&
+                II auto
 irqOn           () 
                 { 
                 RCC->APBENR2 or_eq RCC_APBENR2_SYSCFGEN; //so can read EXTI_LINEx
@@ -188,7 +191,7 @@ irqOn           ()
                 return *this; 
                 } 
 
-                II GpioPin&
+                II auto
 irqNoEdges      () 
                 { 
                 EXTI->FTSR1 and_eq compl pinmask_; 
@@ -196,7 +199,7 @@ irqNoEdges      ()
                 return *this; 
                 }
 
-                II GpioPin&
+                II auto
 irqRising       () 
                 { 
                 EXTI->FTSR1 and_eq compl pinmask_; 
@@ -204,7 +207,7 @@ irqRising       ()
                 return *this; 
                 }
 
-                II GpioPin&
+                II auto
 irqFalling      () 
                 { 
                 EXTI->RTSR1 and_eq compl pinmask_; 
@@ -212,7 +215,7 @@ irqFalling      ()
                 return *this; 
                 }
 
-                II GpioPin&
+                II auto
 irqBothEdges    () 
                 { 
                 EXTI->FTSR1 or_eq pinmask_; 
@@ -220,27 +223,7 @@ irqBothEdges    ()
                 return *this; 
                 }
 
-
-//                 II GpioPin&
-// irqMode         (PINS::IRQMODE e)
-//                 {
-
-//                 irqOff();
-
-//                 if( e == PINS::IRQOFF ) {
-//                     EXTI->RTSR1 and_eq compl pinmask_;
-//                     EXTI->FTSR1 and_eq compl pinmask_;
-//                     }
-//                 else if( e == PINS::RISING ) irqRise();
-//                 else if( e == PINS::FALLING ) irqFall();
-//                 else irqBothedges();
-
-//                 if( e ) irqOn(); //mask back on unless IRQOFF
-//                 return *this;
-//                 }
-
-
-                //get which IRQn_Type er belong to
+                //get which IRQn_Type we belong to
                 II IRQn_Type
 irqN            ()
                 {
@@ -250,28 +233,8 @@ irqN            ()
                 }
 
 
-                II GpioPin&
-lock            () { GpioPort::lock(pinmask_); return *this; }
+// read
 
-                //back to reset state- if reconfuring pin from an unknown state
-                II GpioPin&
-deinit          ()
-                {
-                mode(PINS::ANALOG).outType(PINS::PUSHPULL).altFunc(PINS::AF0)
-                    .speed(PINS::SPEED0).pull(PINS::NOPULL);
-                low();
-                //if we are on the sw port, and is a sw pin
-                //then we have a different reset state
-                if ( port_ == (PINS::SWCLK/16) and (pin_ == (PINS::SWCLK bitand 15)) ) {
-                    mode( PINS::ALTERNATE ).pull( PINS::PULLDOWN );
-                    }
-                if ( port_ == (PINS::SWCLK/16) and (pin_ == (PINS::SWDIO bitand 15)) ) {
-                    mode( PINS::ALTERNATE ).pull( PINS::PULLUP ).speed( PINS::SPEED3 );
-                    }
-                return *this;
-                }
-
-                //read
                 II auto
 pinVal          () { return reg_.IDR bitand pinmask_; }
                 II auto
@@ -286,22 +249,41 @@ isOn            () { return ( invert_ == PINS::LOWISON ) ? isLow() : isHigh(); }
                 II auto
 isOff           () { return not isOn(); }
 
-                //write
-                II GpioPin&
-high            () { reg_.BSRR = pinmask_; return *this; }
-                II GpioPin&
-low             () { reg_.BRR = pinmask_; return *this; }
 
-                II GpioPin&
+// write
+
+                II auto
+high            () { reg_.BSRR = pinmask_; return *this; }
+                II auto
+low             () { reg_.BRR = pinmask_; return *this; }
+                II auto
 on              () { invert_ == PINS::LOWISON ? low() : high(); return *this; }
-                II GpioPin&
+                II auto
 off             () { invert_ == PINS::LOWISON ? high() : low(); return *this; }
-                II GpioPin&
+                II auto
 on              (bool tf) { tf ? on() : off(); return *this; }
-                II GpioPin&
+                II auto
 toggle          () { latVal() ? low() : high(); return *this; }
-                II GpioPin&
+                II auto
 pulse           () { toggle(); toggle(); return *this; }
+
+
+                //back to reset state- if reconfiguring pin from an unknown state
+                II auto
+deinit          ()
+                {
+                mode(PINS::ANALOG).outType(PINS::PUSHPULL).altFunc(PINS::AF0)
+                    .speed(PINS::SPEED0).pull(PINS::NOPULL).low();
+                //if we are on the sw port, and is a sw pin
+                //then we have a different reset state
+                if ( port_ == (PINS::SWCLK/16) and (pin_ == (PINS::SWCLK bitand 15)) ) {
+                    pull( PINS::PULLDOWN ).mode( PINS::ALTERNATE );
+                    }
+                if ( port_ == (PINS::SWCLK/16) and (pin_ == (PINS::SWDIO bitand 15)) ) {
+                    pull( PINS::PULLUP ).speed( PINS::SPEED3 ).mode( PINS::ALTERNATE );
+                    }
+                return *this;
+                }
 
 };
 

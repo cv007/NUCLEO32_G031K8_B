@@ -239,6 +239,7 @@ operator<<      (const FMT_U64_ vu) //is u64 or u32
                 return *this;
                 }
 
+
             #if FMT_DOUBLE_ || FMT_FLOAT_
                 //double or float
                 self&
@@ -288,6 +289,13 @@ operator<<      (const FMT_I64_ v)
                 optionNEG_ = true;
                 return operator<<( (FMT_U64_)-v );
                 }
+
+                //not sure why these are needed, but compiler didn't know what to choose when
+                //it saw an int, although it is the same as an i32
+                self&
+operator<<      (const unsigned int vu) { return operator<<( (FMT_U64_)vu ); }
+                self&
+operator<<      (const int v) { return operator<<( (FMT_I64_)v ); }
 
 
             #if FMT_USE_U64_ //then need u32/i32 versions

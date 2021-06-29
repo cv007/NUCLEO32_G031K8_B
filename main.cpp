@@ -32,6 +32,37 @@ main            ()
 
                 encoder1Init();
 
+//                    auto Apin = GpioPin(board.D[11]).mode(PINS::INPUT).pull(PINS::PULLUP);
+//                    auto Bpin = GpioPin(board.D[12]).mode(PINS::INPUT).pull(PINS::PULLUP);
+//
+//                     bool A=1,B=1;
+//                     int count = 0;
+//                     while(1){
+//                         while( A == Apin.isHigh() ){}       //while A state unchanged
+//                         B = Bpin.isHigh();                  //A changed, get 'stable' B state
+//                         if( A==0 && B==0 ){
+//                             count++;
+//                             uart
+//                             << FG DARK_ORANGE << "encoder1: "
+//                             << FG << (count >= 0 ? BLUE_VIOLET : DEEP_SKY_BLUE)
+//                             << setw(4) << count
+//                             << " [" << bin << setwf(8,'0') << (count bitand 0xFF) << "]" ANSI_NORMAL << endlr;
+//                             }
+//
+//                         while( B == Bpin.isHigh() ){}       //while B state unchanged
+//                         A = Apin.isHigh();                  //B changed, get 'stable' A state
+//                         if( A==0 && B==0 ){
+//                             count--;
+//                             uart
+//                             << FG DARK_ORANGE << "encoder1: "
+//                             << FG << (count >= 0 ? BLUE_VIOLET : DEEP_SKY_BLUE)
+//                             << setw(4) << count
+//                             << " [" << bin << setwf(8,'0') << (count bitand 0xFF) << "]" ANSI_NORMAL << endlr;
+//                             }
+//
+//                     }
+
+
 
                 i32 lastc = 0;
                 while( true ) {
@@ -47,6 +78,7 @@ main            ()
                         board.led.toggle();
                         }
                     }
+
                 }
 
 #endif

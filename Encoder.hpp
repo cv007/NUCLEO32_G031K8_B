@@ -17,9 +17,8 @@
     used have to be unique pin numbers
 
     (can) create inline Encoder instances at end of file-
-    inline instance(s) in header (at end of this file)
 
-        inline Encoder encoder1{PB40, PB5}; //EXTI4_15_IRQn
+        inline Encoder encoder1{PB4, PB5}; //EXTI4_15_IRQn
         inline Encoder encoder2{PB9, PA8}; //EXTI4_15_IRQn
         inline Encoder encoder3{PB0, PB2}; //EXTI0_1_IRQn,EXTI2_3_IRQn
 
@@ -64,11 +63,8 @@ Encoder         (PINS::PIN pina, PINS::PIN pinb)
                 auto
 count           ()
                 {
-                if constexpr( sizeof(count_) > 1 ) { //need atomic if count_ is i16+
-                    InterruptLock lock;
-                    return count_;
-                }
-                return count_; //already atomic
+                //count_ read is atomic on 32bit mcu, InterruptLock noe needed
+                return count_;
                 }
 
                 //read/consume the current count (count zeroed)
@@ -76,7 +72,7 @@ count           ()
                 auto
 read            ()
                 {
-                InterruptLock lock; //writing, so don't want to miss a step
+                InterruptLock lock; //writing/clearing, so don't want to miss a step
                 auto ret = count_;
                 count_ = 0;
                 return ret;
@@ -86,11 +82,11 @@ read            ()
                 auto
 reset           () { read(); }
 
-                //public
+                //public access
                 auto
 isr             ()
                 {
-                if( isAirq_ ) { //A irq
+                if( isIrqA_ ) { //A irq
                     if( not pinA_.isFlag() ) return; //our pin is not flagged
                     B_ = pinB_.isOn(); //get state of other pin
                     if( not A_ and not B_ and (count_ != COUNTMAX) ) count_++;
@@ -111,22 +107,22 @@ isr             ()
                 auto
 irqSwap         () -> void
                 {
-                if( isAirq_ ) { //A->B
+                if( isIrqA_ ) { //A->B
                     pinA_.irqOff();
                     pinB_.irqOn();
-                    isAirq_ = false;
+                    isIrqA_ = false;
                     }
                 else { //B->A
                     pinB_.irqOff();
                     pinA_.irqOn();
-                    isAirq_ = true;
+                    isIrqA_ = true;
                     }
                 }
 
                 GpioPin pinA_;
                 GpioPin pinB_;
                 volatile bool A_{1},B_{1};  //pin state measured in opposite isr
-                volatile bool isAirq_;      //1=a, 0=b
+                volatile bool isIrqA_;      //1=a, 0=b
                 volatile i32 count_;        //encoder count
                 //set min/max limit values to match count_ type/size
                 SCA COUNTMIN{ (i32)0x80000000 };
