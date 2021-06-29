@@ -11,11 +11,11 @@
         board
         uart
 
-    incremental encoder hooked up to D11,D12
+    incremental encoder hooked up to D11,D12 (PB4,PB5)
     print out values when encoder changes
     (see Encoder.hpp)
 --------------------------------------------------------------*/
-Encoder encoder1{ board.D[11], board.D[12] }; //PB4,PB5 D11,D12
+Encoder encoder1{ board.D[11], board.D[12] };
 
                 static void
 encoder1Init    ()
