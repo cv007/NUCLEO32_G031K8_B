@@ -539,7 +539,7 @@ showbase        };
 
 
     using DebuRttT = DevRtt<0>; //debug output wanted
-    // using DebuRttT = NullStreamer; //if want no debug output
+    // using DebuRttT = NullFormat; //if want no debug output
     inline DebuRttT DebugRtt; //uses type specified above
 
     DebugRtt << FG BLUE << "Booting..." << endl; //either outputs, or optimized away
