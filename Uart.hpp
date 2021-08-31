@@ -6,7 +6,7 @@
 
 /*=============================================================
     Uart class- quick and simple, tx only,
-    inherit uPut for printf style use via .print
+    inherit Format for cout style use
 =============================================================*/
 struct Uart : Format {
 
@@ -63,5 +63,6 @@ Uart            (usartT u, u32 baud)
                 baudReg( baud );
                 txOn();
                 }
+
 
 };
