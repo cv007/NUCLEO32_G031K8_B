@@ -27,9 +27,9 @@ CLKSRC          {
                 PCLK, LSI, HSI16, //LSE
                 };
 
-                enum
+                enum //bitmasks
 LPTIMIRQ        {
-                CMPM, ARRM, EXTTRIG, CMPOK, ARROK, UP, DOWN, ALL
+                CMPM = 1<<0, ARRM = 1<<1, EXTTRIG = 1<<2, CMPOK = 1<<3, ARROK = 1<<4, UP = 1<<5, DOWN = 1<<6, ALL = 0x7F
                 };
 
                 //LPTIMx specific rcc register layout, for lptim use only
@@ -85,14 +85,17 @@ off             (){ reg_.CR and_eq compl ENABLEbm; }
                 static auto
 startContinuous (){ on(); reg_.CR or_eq CNTSTRTbm; }
                 static auto
-irqClear        (LPTIMIRQ e) { reg_.ICR = (e == ALL ? 0x7F : 1<<e); }
+
+                //LPTIMIRQ is bitmask value, use as-is
+irqClear        (LPTIMIRQ e) { reg_.ICR = e; }
                 static auto
-irqOn           (LPTIMIRQ e){ off(); irqClear(e); reg_.IER or_eq (1<<e); }
+irqOn           (LPTIMIRQ e){ off(); irqClear(e); reg_.IER or_eq e; }
                 static auto
-irqOff          (LPTIMIRQ e) { off(); reg_.IER and_eq compl (1<<e); }
+irqOff          (LPTIMIRQ e) { off(); reg_.IER and_eq compl e; }
                 static auto
-irqIsFlag       (LPTIMIRQ e) { return reg_.ISR bitand (1<<e); }
-                static void //note- preload not in use, value written 'now'
+irqIsFlag       (LPTIMIRQ e) { return reg_.ISR bitand e; }
+                //note- preload not in use, arr value written 'now'
+                static void
 setInterval     (u16 v) { on(); reg_.ARR = v; }
 
 //-------------|
