@@ -268,6 +268,13 @@ main            ()
 #include "MyStm32.hpp"
 #include "Lptim.hpp"
 
+//count pulses on PB1 ( d[3] )
+Lptim2PulseCounter lptimCounter;
+//need something to generate pulses (board does not provide
+//connections to uart2 or led, so will do this instead)
+//toggle in lptim isr function, same as led, connect D[2] to D[3]
+GpioPin pulseGen{ GpioPin(board.D[2]).mode(PINS::OUTPUT).off() };
+
 
 volatile u32 lptimIrqCount; //count lptim irq's, for fun
 
@@ -280,7 +287,7 @@ Lptim1RepeatFunction lptim{
             1,0,1,0,1,0,
             0,0,0,0,0,0,0 };
         static auto sosIdx = 0u;
-
+pulseGen.toggle();
         board.led.on( sos[sosIdx] );
         if( ++sosIdx >= arraySize(sos) ){
             sosIdx = 0;
@@ -293,17 +300,20 @@ Lptim1RepeatFunction lptim{
 
 
 
+
                 int
 main            ()
                 {
                 irqFunction( uart.irqN, []{ uart.isr(); } );
                 while( true ) {
-                    //             random64 (hex)    irq count (dec)
-                    //Hello World [0000000000000000] [         0]
+                    //             random64 (hex)  irq count (dec) pulse counts
+                    //Hello World [0000000000000000][         0][         0]
                     uart    << FG ROYAL_BLUE "Hello World ["  FG LIGHT_GREEN
                             << setwf( 16, '0' ) << hex << uppercase << random64()
-                            << FG ROYAL_BLUE "] ["
+                            << FG ROYAL_BLUE "]["
                             << FG ORANGE << setwf(10, ' ') << dec << lptimIrqCount
+                            << FG ROYAL_BLUE "]["
+                            << FG YELLOW << setwf(10, ' ') << dec << lptimCounter.count()
                             << FG ROYAL_BLUE "]" << endl;
                     delayMS( 10 );
                     }
