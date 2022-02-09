@@ -46,48 +46,56 @@ static constexpr Uart::usartT Uart1_A9A10 {
     .baseAddress = USART1_BASE,
     .txPin = PINS::PA9,  .txAltFunc = PINS::AF1,
     .rxPin = PINS::PA10, .rxAltFunc = PINS::AF1,
-    .rccEnable = []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; }
+    .rccEnable = []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; },
+    USART1_IRQn
 };
 static constexpr Uart::usartT Uart1_A9B7 {
     USART1_BASE,
     PINS::PA9, PINS::AF1,
     PINS::PB7, PINS::AF0,
-    []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; }
+    []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; },
+    USART1_IRQn
 };
 static constexpr Uart::usartT Uart1_B6A10 {
     USART1_BASE,
     PINS::PB6, PINS::AF0,
     PINS::PA10, PINS::AF1,
-    []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; }
+    []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; },
+    USART1_IRQn
 };
 static constexpr Uart::usartT Uart1_B6B7 {
     USART1_BASE,
     PINS::PB6, PINS::AF0,
     PINS::PB7, PINS::AF0,
-    []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; }
+    []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; },
+    USART1_IRQn
 };
 
 static constexpr Uart::usartT Uart2_A2A3 {
     USART2_BASE,
     PINS::PA2, PINS::AF1,
     PINS::PA3, PINS::AF1,
-    []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; }
+    []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; },
+    USART2_IRQn
 };
 static constexpr Uart::usartT Uart2_A2A15 {
     USART2_BASE,
     PINS::PA2, PINS::AF1,
     PINS::PA15, PINS::AF1,
-    []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; }
+    []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; },
+    USART2_IRQn
 };
 static constexpr Uart::usartT Uart2_A14A3 {
     USART2_BASE,
     PINS::PA14, PINS::AF1,
     PINS::PA3, PINS::AF1,
-    []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; }
+    []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; },
+    USART2_IRQn
 };
 static constexpr Uart::usartT Uart2_A14A15 {
     USART2_BASE,
     PINS::PA14, PINS::AF1,
     PINS::PA15, PINS::AF1,
-    []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; }
+    []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; },
+    USART2_IRQn
 };

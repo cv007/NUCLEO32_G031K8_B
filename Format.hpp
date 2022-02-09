@@ -6,8 +6,8 @@
     Format options - set first 3 as needed
 --------------------------------------------------------------*/
 #define FMT_DOUBLE  0 //(will also get u64 and float)
-#define FMT_U64     0 //u64 support
-#define FMT_FLOAT   0 //can have float without u64/double
+#define FMT_U64     1 //u64 support
+#define FMT_FLOAT   1 //can have float without u64/double
 
 //double
 #if     (defined(FMT_DOUBLE) && FMT_DOUBLE)
@@ -60,8 +60,8 @@ using   i64 = int64_t;
 class Format {
 
 //change function attributes for functions that return Format&
-#define self    [[ gnu::noinline ]] Format
-//#define self  Format  //no attributes
+// #define self    [[ gnu::noinline ]] Format
+#define self  Format  //no attributes
 
 //-------------|
     public:
@@ -118,9 +118,10 @@ width           (const int v)
                 { optionWMIN_ = v > OPTIONWMIN_MAX ? OPTIONWMIN_MAX : v; return *this; }
 
                 // << setwmax(40) - maximum width (truncate output)
+                // OPTIONWMAX_MAX is max value, and 0 will result in OPTIONWMAX_MAX
                 self&
 widthmax        (const unsigned int v)
-                { optionWMAX_ = v; return *this; }
+                { optionWMAX_ = v and (v < OPTIONWMAX_MAX) ? v : OPTIONWMAX_MAX; return *this; }
 
                 // << bin|oct|dec|hex
                 // base is max of 16, as the hex table is only 0-F
@@ -179,18 +180,18 @@ newline         ()
                 return *this;
                 }
 
-
                 //string
+                //limit strlen wth strnlen
                 self&
-operator<<      (const char* str)
+operator<<      (const char *str)
                 {
                 auto w = optionWMIN_;
                 auto wmax = optionWMAX_;                    //if 0, first --wmax will make it 0xFFFF (effectively no max limit)
                 auto fc = optionFIL_ ? optionFIL_ : ' ';    //if 0, is ' '
-                u32 i = w ? __builtin_strlen( str ) : 0;    //if w set, need str length
+                u32 i = w ? __builtin_strnlen( str,wmax ) : 0; //if w set, need str length
                 auto fill = [&]{ while( (w-- > i) and --wmax ) put_( fc ); }; //lambda
                 if( not optionJL_ ) fill();                 //justify right, fill first
-                while( *str and --wmax ) put_( *str++ );  //srite str
+                while( *str and --wmax ) put_( *str++ );    //write str
                 if( optionJL_ ) fill();                     //justify left, fill last
                 optionWMIN_ = 0;                            //setw always cleared after use
                 return *this;
@@ -339,12 +340,13 @@ put_            (const char c)
 
                 static constexpr char hexTable[]{ "0123456789abcdef" };
                 static constexpr auto OPTIONWMIN_MAX{ 128 }; //maximum value of optionWMIN_
+                static constexpr auto OPTIONWMAX_MAX{ 256 }; //maximum value of optionWMAX_
 
                 char NL_[3]     {"\r\n"};   //newline combo, can be changed at runtime
                 u16  count_     { 0 };      //number of chars printed
                 u16  errors_    { 0 };      //store any errors along the way
                 u16  optionWMIN_{ 0 };      //minimum width
-                u16  optionWMAX_{ 0 };      //maximum width
+                u16  optionWMAX_{ OPTIONWMAX_MAX }; //maximum width (also limits strnlen in a function)
                 u8   optionB_   { 10 };     //base 2,8,10,16
             #if FMT_DOUBLE_ || FMT_FLOAT_
                 u8   optionPRE_ { 9 };      //float/double precision (decimal places)

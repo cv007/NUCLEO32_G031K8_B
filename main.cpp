@@ -2,8 +2,25 @@
 /*-------------------------------------------------------------
     stm32g031k8 - nucleo32
 --------------------------------------------------------------*/
+#if 0
+                int
+main            ()
+                {
+                u32 count = 0;
+                    uart
+                        << FG GREEN "Hello World: "
+                        << Hex0x << setwf(8,'0') << count++
+                        << endl;
+                    uart2
+                        << FG GREEN "Hello World: "
+                        << Hex0x << setwf(8,'0') << count++
+                        << endl;
+                    }
+                    delayMS(10);
+                }
+#endif
 
-#if 1
+#if 0
 #include "Encoder.hpp"
 /*-------------------------------------------------------------
     main
@@ -29,6 +46,31 @@ encoder1Init    ()
                 int
 main            ()
                 {
+                // uart << endl;
+
+                // uart << Hex0x << setwf(15,' ') << "RCC APBENR1: " << setwf(8,'0') << RCC->APBENR1;
+                // RCC->APBENR1 or_eq (1<<28); //PWREN
+                // uart << " -> " << setwf(8,'0') << RCC->APBENR1 << endl;
+
+                // uart << Hex0x << setwf(15,' ') << "PWR CR1: " << setwf(8,'0') << PWR->CR1;
+                // PWR->CR1 or_eq (1<<8);  //DBP disable rtc domain write protection
+                // uart << " -> " << setwf(8,'0') << PWR->CR1 << endl;
+
+                // uart << Hex0x << setwf(15,' ') << "RCC BDCR: " << setwf(8,'0') << RCC->BDCR;
+                // RCC->BDCR = 1; //LSEON
+                // uart << " -> " << setwf(8,'0') << RCC->BDCR; //LSEON should be set
+                // while( (RCC->BDCR bitand 2) == 0 ){} //LSERDY
+                // uart << " -> " << setwf(8,'0') << RCC->BDCR << endl2r; //LSERDY is set
+
+/*
+
+  RCC APBENR1: 0x00020000 -> 0x10020000
+      PWR CR1: 0x00000208 -> 0x00000308
+     RCC BDCR: 0x00000003 -> 0x00000003 -> 0x00000003
+
+*/
+// while(1){}
+
 
                 encoder1Init();
 
@@ -219,5 +261,55 @@ main            ()
 
 #endif
 
+#if 1 //02-09-2022, added Lptim, change Uart to irq/buffer based
+/*-------------------------------------------------------------
+    main
+--------------------------------------------------------------*/
+#include "MyStm32.hpp"
+#include "Lptim.hpp"
+
+
+volatile u32 lptimIrqCount; //count lptim irq's, for fun
+
+//blink sos in morse code, 'dit' times are random range of values
+Lptim1RepeatFunction lptim{
+    []{
+        static constexpr bool sos[]{
+            1,0,1,0,1,0, 0,0,0,
+            1,1,1,0,1,1,1,0,1,1,1,0, 0,0,0,
+            1,0,1,0,1,0,
+            0,0,0,0,0,0,0 };
+        static auto sosIdx = 0u;
+
+        board.led.on( sos[sosIdx] );
+        if( ++sosIdx >= arraySize(sos) ){
+            sosIdx = 0;
+            lptim.reinit( random16(80_ms_lptim, 200_ms_lptim) );
+        }
+        lptimIrqCount++;
+        },
+    100_ms_lptim, //start with 100ms
+};
+
+
+
+                int
+main            ()
+                {
+                irqFunction( uart.irqN, []{ uart.isr(); } );
+                while( true ) {
+                    //             random64 (hex)    irq count (dec)
+                    //Hello World [0000000000000000] [         0]
+                    uart    << FG ROYAL_BLUE "Hello World ["  FG LIGHT_GREEN
+                            << setwf( 16, '0' ) << hex << uppercase << random64()
+                            << FG ROYAL_BLUE "] ["
+                            << FG ORANGE << setwf(10, ' ') << dec << lptimIrqCount
+                            << FG ROYAL_BLUE "]" << endl;
+                    delayMS( 10 );
+                    }
+
+                }
+
+#endif
 
 

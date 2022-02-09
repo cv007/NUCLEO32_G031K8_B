@@ -3,7 +3,7 @@
 /*-------------------------------------------------------------
     using - stm32g031k8 - nucleo32
 --------------------------------------------------------------*/
-#include "stm32g031xx.h"
+#include "stm32g031xx.h" //manufacturer header
 #include <cstdint>
 
 using u8    = uint8_t;
@@ -31,7 +31,7 @@ struct System {
 /*--------------------------------------------------------------
     mcu include
 --------------------------------------------------------------*/
-#include "stm32g031k8.hpp"
+#include "stm32g031k8.hpp" //our own mcu specific header
 
 /*--------------------------------------------------------------
     utilities (optionally bring in to global namespace)
