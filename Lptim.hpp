@@ -29,12 +29,14 @@ struct Lptim {
                     u32 LSION :1; u32 :31;                          //CSR, 0x60
                 };
 
-                //useful enums/constants
+                //useful private enum values
                 enum { ENABLEbm = 1<<0, CNTSTRTbm = 1<<2 };
 
                 //vars
                 static inline LPTIM_TypeDef&    reg_{ *(LPTIM_TypeDef*)Base_ }; //lptim registers
                 static inline volatile RegRcc&  regRcc_{ *(RegRcc*)RCC_BASE };  //rcc registers
+
+                #define self Lptim<Base_>() //a *this equivalent
 
 //-------------|
     public:
@@ -67,33 +69,38 @@ clksel          (CLKSRC e)
                 off(); //needed to write to CFGR
                 if( e == EXTIN ) reg_.CFGR or_eq 1;     //CKSEL, 0=int clock, 1=ext in
                     else reg_.CFGR and_eq 1;
+                return self;
                 }
 
+
                 static auto
-reset           (){ regRcc_.LPTIMRST = 1; regRcc_.LPTIMRST = 0; }
+reset           (){ regRcc_.LPTIMRST = 1; regRcc_.LPTIMRST = 0; return self; }
                 static auto
-on              (){ reg_.CR or_eq ENABLEbm; }
+on              (){ reg_.CR or_eq ENABLEbm; return self; }
                 static auto
-off             (){ reg_.CR and_eq compl ENABLEbm; }
+off             (){ reg_.CR and_eq compl ENABLEbm; return self; }
                 static auto
-startContinuous (){ on(); reg_.CR or_eq CNTSTRTbm; }
+startContinuous (){ on(); reg_.CR or_eq CNTSTRTbm; return self; }
 
                 //LPTIMIRQ is bitmask value, use as-is
                 static auto
-irqClear        (LPTIMIRQ e) { reg_.ICR = e; }
+irqClear        (LPTIMIRQ e) { reg_.ICR = e; return self; }
                 static auto
-irqOn           (LPTIMIRQ e){ off(); irqClear(e); reg_.IER or_eq e; }
+irqOn           (LPTIMIRQ e){ off(); irqClear(e); reg_.IER or_eq e; return self; }
                 static auto
-irqOff          (LPTIMIRQ e) { off(); reg_.IER and_eq compl e; }
+irqOff          (LPTIMIRQ e) { off(); reg_.IER and_eq compl e; return self; }
                 static auto
-irqIsFlag       (LPTIMIRQ e) { return reg_.ISR bitand e; }
+irqIsFlag       (LPTIMIRQ e) { return reg_.ISR bitand e; return self; }
                 //note- preload not in use, arr value written 'now'
                 static auto
-setReload       (u16 v) { on(); reg_.ARR = v; }
+setReload       (u16 v) { on(); reg_.ARR = v; return self; }
                 static auto //read twice, valid if both the same value
 count           () { u16 v; while( v = reg_.CNT, v != reg_.CNT ){} return v; }
 
+                #undef self
 };
+
+
 
 
 
@@ -108,7 +115,7 @@ count           () { u16 v; while( v = reg_.CNT, v != reg_.CNT ){} return v; }
 operator "" _ms_lptim(u64 ms) -> u16 { return ms > 2048 ? 65535 : ms*32ul-1; }
 
 
-template<u32 Base_> //Base_
+template<u32 Base_>
 struct LptimRepeatFunction {
 
 //-------------|
@@ -133,13 +140,13 @@ isr             ()
                 static void
 reinit          (void(*isrfunc)(), u16 arrVal)
                 {
-                lptim.reset();                      //reset lptim via rcc
-                //lptim registers now in reset state
+                lptim.reset();
                 isrFunc_ = isrfunc;
                 if( not isrfunc ) return;           //no function, so nothing more to do
-                lptim.irqOn( lptim.ARRM );          //lptim will be off after set
-                lptim.setReload( arrVal );          //lptim is now on
-                lptim.startContinuous();            //start counter continuous mode
+                lptim.clksel( lptim.LSI )
+                     .irqOn( lptim.ARRM )
+                     .setReload( arrVal )
+                     .startContinuous();
                 }
 
                 static void
@@ -150,7 +157,6 @@ reinit          (u16 arrVal)                        //reuse previously set funct
 
 LptimRepeatFunction(void(*isrfunc)(), u16 arrVal)   //(use _ms_lptim to convert ms to arr value)
                 {
-                lptim.clksel( lptim.LSI );          //enable clock src in rcc
                 irqFunction( lptim.IRQn, isr );     //setup irq vector
                 reinit( isrfunc, arrVal );          //set irq function, interval
                 }
@@ -202,12 +208,11 @@ isr             ()
 reinit          ()
                 {
                 GpioPin(Pin_).mode(INPUT).pull(PULLDOWN).altFunc(AF5);
-                lptim.reset();                          //reset lptim via rcc
-                //lptim is off
-                lptim.clksel( lptim.EXTIN );            //LPTIMx rcc enable, ext in (gpio)
-                lptim.irqOn( lptim.ARRM );              //lptim will be off after set
-                lptim.setReload( 65535 );               //lptim is now on
-                lptim.startContinuous();
+                lptim.reset()
+                     .clksel( lptim.EXTIN )
+                     .irqOn( lptim.ARRM )
+                     .setReload( 65535 )
+                     .startContinuous();
                 }
 
                 static auto
