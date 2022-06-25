@@ -261,59 +261,60 @@ main            ()
 
 #endif
 
-#if 1 //02-09-2022, added Lptim, change Uart to irq/buffer based
+#if 1
 /*-------------------------------------------------------------
     main
 --------------------------------------------------------------*/
 #include "MyStm32.hpp"
 #include "Lptim.hpp"
 
-//count pulses on PB1 ( d[3] )
-Lptim2PulseCounter lptimCounter;
+//count pulses on PB1 ( D[3] )
+LptimPulseCounter lptimCounter{ LptimPulseCounterPB1 };
+
 //need something to generate pulses (board does not provide
 //connections to uart2 or led, so will do this instead)
-//toggle in lptim isr function, same as led, connect D[2] to D[3]
-GpioPin pulseGen{ GpioPin(board.D[2]).mode(PINS::OUTPUT).off() };
+//toggle pin in lptim isr function, connect D[2] (this pin)  to D[3] (lptim counter pb1)
+GpioPin pulseGen{ GpioPin(board.D[2]).mode(OUTPUT).off() };
 
 
 volatile u32 lptimIrqCount; //count lptim irq's, for fun
 
 //blink sos in morse code, 'dit' times are random range of values
-Lptim1RepeatFunction lptim{
-    []{
+// Lptim1RepeatFunction lptim{
+LptimRepeatFunction lptim{
+    LPTIM1, //which timer (pulse counter is using LPTIM2)
+    []{     //lambda function
         static constexpr bool sos[]{
             1,0,1,0,1,0, 0,0,0,
             1,1,1,0,1,1,1,0,1,1,1,0, 0,0,0,
             1,0,1,0,1,0,
             0,0,0,0,0,0,0 };
         static auto sosIdx = 0u;
-pulseGen.toggle();
+        pulseGen.toggle(); //for lptimCounter clock source
         board.led.on( sos[sosIdx] );
         if( ++sosIdx >= arraySize(sos) ){
             sosIdx = 0;
             lptim.reinit( random16(80_ms_lptim, 200_ms_lptim) );
-        }
+            }
         lptimIrqCount++;
-        },
+        }, //end lambda
     100_ms_lptim, //start with 100ms
 };
-
 
 
 
                 int
 main            ()
                 {
-                irqFunction( uart.irqN, []{ uart.isr(); } );
                 while( true ) {
-                    //             random64 (hex)  irq count (dec) pulse counts
-                    //Hello World [0000000000000000][         0][         0]
+                    //             random32 (hex)  irq count (dec) pulse counts
+                    //Hello World [00000000][         0][         0]
                     uart    << FG ROYAL_BLUE "Hello World ["  FG LIGHT_GREEN
-                            << setwf( 16, '0' ) << hex << uppercase << random64()
+                            << Hexpad(8) << random32()
                             << FG ROYAL_BLUE "]["
                             << FG ORANGE << setwf(10, ' ') << dec << lptimIrqCount
                             << FG ROYAL_BLUE "]["
-                            << FG YELLOW << setwf(10, ' ') << dec << lptimCounter.count()
+                            << FG YELLOW << setw(10) << lptimCounter.count()
                             << FG ROYAL_BLUE "]" << endl;
                     delayMS( 10 );
                     }
@@ -321,5 +322,3 @@ main            ()
                 }
 
 #endif
-
-

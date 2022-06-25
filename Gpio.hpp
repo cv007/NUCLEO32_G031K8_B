@@ -96,7 +96,8 @@ lock            () { GpioPort::lock(pinmask_); return *this; }  //lock return va
                 II auto
 mode            (PINS::MODE e)
                 {
-                reg_.MODER = (reg_.MODER bitand compl (3<<(2*pin_))) bitor (e<<(2*pin_));
+                auto bp = 2*pin_, bmclr = compl (3<<bp), bmset = e<<bp;
+                reg_.MODER = (reg_.MODER bitand bmclr) bitor bmset;
                 return *this;
                 }
 
@@ -111,9 +112,7 @@ outType         (PINS::OTYPE e)
                 II auto
 pull            (PINS::PULL e)
                 {
-                auto bp = 2*pin_;
-                auto bmclr = compl (3<<bp);
-                auto bmset = e<<bp;
+                auto bp = 2*pin_, bmclr = compl (3<<bp), bmset = e<<bp;
                 reg_.PUPDR = (reg_.PUPDR bitand bmclr) bitor bmset;
                 return *this;
                 }
@@ -121,9 +120,7 @@ pull            (PINS::PULL e)
                 II auto
 speed           (PINS::SPEED e)
                 {
-                auto bp = 2*pin_;
-                auto bmclr = compl (3<<bp);
-                auto bmset = e<<bp;
+                auto bp = 2*pin_, bmclr = compl (3<<bp), bmset = e<<bp;
                 reg_.OSPEEDR = (reg_.OSPEEDR bitand bmclr) bitor bmset;
                 return *this;
                 }
@@ -132,9 +129,7 @@ speed           (PINS::SPEED e)
 altFunc         (PINS::ALTFUNC e)
                 {
                 auto& r = reg_.AFR[pin_>7 ? 1 : 0];
-                auto bp = 4*(pin_ bitand 7);
-                auto bmclr = compl (15<<bp);
-                auto bmset = e<<bp;
+                auto bp = 4*(pin_ bitand 7), bmclr = compl (15<<bp), bmset = e<<bp;
                 r = (r bitand bmclr) bitor bmset;
                 mode( PINS::ALTERNATE );
                 return *this; 
@@ -146,7 +141,7 @@ altFunc         (PINS::ALTFUNC e)
                 II bool
 isFlagRise      ()
                 {
-                auto bm =EXTI->RPR1 bitand pinmask_;
+                auto bm = EXTI->RPR1 bitand pinmask_;
                 EXTI->RPR1 = bm;
                 return bm;
                 }
@@ -155,7 +150,7 @@ isFlagRise      ()
                 II bool
 isFlagFall      ()
                 {
-                auto bm =EXTI->FPR1 bitand pinmask_;
+                auto bm = EXTI->FPR1 bitand pinmask_;
                 EXTI->FPR1 = bm;
                 return bm;
                 }
@@ -163,9 +158,8 @@ isFlagFall      ()
                 //get any flag, clear if set
                 II bool
 isFlag          ()
-                {
-                bool r = isFlagRise();
-                bool f = isFlagFall();
+                { //get both so the 'or' does not leave the second untouched if set
+                bool r = isFlagRise(), f = isFlagFall();
                 return r or f;
                 }
 
@@ -182,9 +176,7 @@ irqOn           ()
                 RCC->APBENR2 or_eq RCC_APBENR2_SYSCFGEN; //so can read EXTI_LINEx
                 //set our port to use this pin irq
                 auto& r = EXTI->EXTICR[pin_/4];
-                auto bp = (pin_ bitand 3)*8; //0,8,16,24
-                auto bmset = port_<<bp;
-                auto bmclr = compl (0xFF<<bp);
+                auto bp = (pin_ bitand 3)*8 /*0,8,16,24*/, bmset = port_<<bp, bmclr = compl (0xFF<<bp);
                 r = (r bitand bmclr) bitor bmset;
                 isFlag(); //clear flags
                 EXTI->IMR1 or_eq pinmask_; 
@@ -227,9 +219,9 @@ irqBothEdges    ()
                 II IRQn_Type
 irqN            ()
                 {
-                if( pin_ <= 1 ) return EXTI0_1_IRQn;
-                if( pin_ <= 3 ) return EXTI2_3_IRQn;
-                return EXTI4_15_IRQn;
+                return pin_ <= 1 ? EXTI0_1_IRQn :
+                       pin_ <= 3 ? EXTI2_3_IRQn :
+                       EXTI4_15_IRQn;
                 }
 
 
@@ -257,16 +249,19 @@ high            () { reg_.BSRR = pinmask_; return *this; }
                 II auto
 low             () { reg_.BRR = pinmask_; return *this; }
                 II auto
-on              () { invert_ == PINS::LOWISON ? low() : high(); return *this; }
+on              () { return invert_ == PINS::LOWISON ? low() : high(); }
                 II auto
-off             () { invert_ == PINS::LOWISON ? high() : low(); return *this; }
+off             () { return invert_ == PINS::LOWISON ? high() : low(); }
                 II auto
-on              (bool tf) { tf ? on() : off(); return *this; }
+on              (bool tf) { return tf ? on() : off(); }
                 II auto
-toggle          () { latVal() ? low() : high(); return *this; }
+toggle          () { return latVal() ? low() : high(); }
                 II auto
-pulse           () { toggle(); toggle(); return *this; }
-
+pulseHL         () { high(); return low(); }
+                II auto
+pulseLH         () { low(); return high(); }
+                II auto
+pulse           () { return latVal() ? pulseLH() : pulseHL(); }
 
                 //back to reset state- if reconfiguring pin from an unknown state
                 II auto

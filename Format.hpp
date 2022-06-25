@@ -2,646 +2,300 @@
 
 #include "MyStm32.hpp"
 
-/*-------------------------------------------------------------
-    Format options - set first 3 as needed
---------------------------------------------------------------*/
-#define FMT_DOUBLE  0 //(will also get u64 and float)
-#define FMT_U64     1 //u64 support
-#define FMT_FLOAT   1 //can have float without u64/double
+//==================================================================
+//==================================================================
+// FMT namespace
+//      Print class
+//      PrintNull class
+//      operator<< code
+//==================================================================
+namespace FMT {
 
-//double
-#if     (defined(FMT_DOUBLE) && FMT_DOUBLE)
-#define FMT_DOUBLE_ 1
-#define FMT_FLOAT_TYPE_ double
-#define FMT_PREMAX_ 14 //precision max (limit is 16)
-#else
-#define FMT_DOUBLE_ 0
-#endif
-//float only
-#if     (defined(FMT_FLOAT) && FMT_FLOAT) && !FMT_DOUBLE_
-#define FMT_FLOAT_  1
-#define FMT_FLOAT_TYPE_ float
-#define FMT_PREMAX_ 7 //precision max (limit is 9)
-#else
-#define FMT_FLOAT_  0
-#endif
-//u64 or double
-#if     (defined(FMT_U64) && FMT_U64) || FMT_DOUBLE_
-using   u64 = uint64_t;
-using   i64 = int64_t;
-#define FMT_USE_U64_ 1
-#define FMT_U64_    u64 //all integer functions call u64 or i64
-#define FMT_I64_    i64 //and in this case are actually u64/i64
-#define FMT_BUFMAX_ 66  //64bit bin w/showbase is 66 chars
-#else
-#define FMT_USE_U64_ 0
-#define FMT_U64_    u32 //no u64 support, so call the u32/i32
-#define FMT_I64_    i32 //functions instead
-#define FMT_BUFMAX_ 34  //32bit bin w/showbase is 34 chars
-#endif
-/*-------------------------------------------------------------
-    Format
+//enum values which will be used to choose a particular overloaded
+// print function, where the enum value is either the only value
+// needed (2 or more enums) or only needed to choose an overloaded
+// function but not otherwise used (single value enums)
+enum FMT_JUSTIFY    { right, left, internal };                  //if width padding, justify left, right, or internal to a number
+enum FMT_BASE       { bin = 2 , oct = 8, dec = 10, hex = 16 };  //number base
+enum FMT_ENDL       { endl };                                   //newline
+enum FMT_SHOWBASE   { noshowbase, showbase };                   //0x (hex), 0b (bin), 0 (oct)
+enum FMT_UPPERCASE  { nouppercase, uppercase };                 //hex uppercase or lowercase
+enum FMT_SHOWALPHA  { noshowalpha, showalpha };                 //bin 1|0, "true"|"false"
+enum FMT_SHOWPOS    { noshowpos, showpos };                     //+
+enum FMT_RESET      { reset };                                  //all options reset
+enum FMT_COUNTCLR   { countclr };                               //clear char out count
+enum FMT_ENDL2      { endl2 };                                  //endl x2
 
-    simple class to inherit for cout style 'printing'
-    via virtual put function which has a signature of-
+//==================================================================
+// FMT::Print class
+//==================================================================
+class Print {
 
-        bool put(const char)
-        write return value is false if there is an error
+        //constant values
+        enum { PRECISION_MAX = 9 }; //max float precision, limited to 9 by use of 32bit integers in calculations
 
-    all data goes directly out to the device put function,
-    if any buffering wanted it has to be done in the device
-    class that inherits this
+//----------
+  public:
+//----------
 
-    documentation-
+        //string
+        // str only, str + padding, padding + str
+        auto&
+print   (const char* str)
+        {
+        auto pad = width_ - (int)__builtin_strlen(str); //padding size (will be used if >0)
+        width_ = 0;                                     //always reset after use
+        isNeg_ = false;                                 //clear for the other 2 functions (since they both will end up here)
+        auto strwr = [&]{ while( *str ) write_( *str++ ); }; //function to write the string
+        if( pad <= 0 or just_ == left ) strwr();        //print str first
+        if( pad > 0 ){                                  //need to deal with padding
+            while( pad-- > 0 ) write_( fill_ );         //print any needed padding
+            if( just_ == right ) strwr();               //and print str if was not done already
+            }
+        return *this;
+        }
 
-    examples-
-
---------------------------------------------------------------*/
-class Format {
-
-//change function attributes for functions that return Format&
-// #define self    [[ gnu::noinline ]] Format
-#define self  Format  //no attributes
-
-//-------------|
-    public:
-//-------------|
-
-                using u32 = uint32_t;
-                using i32 = int32_t;
-                using u16 = uint16_t;
-                using i16 = int16_t;
-                using u8 = uint8_t;
-                using i8 = int8_t;
-
-                auto
-count           (){ return count_; }
-
-                auto
-errors          (){ return errors_; }
-
-
-// all functions below returns self&
+        //unsigned int (32bits), prints as string (to above string function)
+        auto&
+print   (const u32 v)
+        {
+        static constexpr auto BUFSZ{ 32+2+1 };          //0bx...x-> 32+2 digits max (+1 for 0 termination)
+        char buf[BUFSZ];
+        u8 idx = BUFSZ;                                 //start past end, so pre-decrement bufidx
+        auto insert = [&](char c){ buf[--idx] = c; };   //function to insert c to buf (idx decrementing)
+        auto a = uppercase_ ? 'A' : 'a';
+        auto u8toa = [&](u8 c){ return c<10 ? c+'0' : c-10+a; };
+        insert( 0 );                                    //0 terminate
+        auto u = v;                                     //make copy to use (v is const)
+        auto w = just_ == internal ? width_ : 0;        //use width_ here if internal justify
+        if( w ) width_ = 0;                             //if internal, clear width_ so not used when value printed
+        while( insert(u8toa(u % base_)), w--, u /= base_ ){} //add printable digits to buf
+        while( w-- > 0 ) insert( fill_ );               //add internal fill, if any
+        switch( base_ ){                                //any other things to add
+            case dec: if( isNeg_ ) insert('-'); else if( pos_ ) insert('+');    break;
+            case bin: if( showbase_ ){ insert('b'); insert ('0'); }             break;
+            case oct: if( showbase_ and v ) insert('0');                        break;
+            case hex: if( showbase_ ){ insert('x'); insert('0'); }              break;
+            }
+        return print( &buf[idx] );                      //call string version of print
+        }
 
 
-                //set to 1 or 2 chars you want for newline
-                //if a set to 0, will get '\0' output
-                //(first char in NL_ is always used, second char only if not 0)
-                self&
-newline         (const char a, const char b = 0)
-                { NL_[0] = a; NL_[1] = b; return *this; }
+        //float, prints as string (to above string function)
+        auto&
+print   (const float cf)
+        {
+        //check for nan/inf
+        if( __builtin_isnan(cf) ) return print( "nan" );
+        if( __builtin_isinf_sign(cf) ) return print( "inf" );
+        //we are limited by choice to using 32bit integers, so check for limits we can handle
+        //raw float value of 0x4F7FFFFF is 4294967040.0, and the next value we will exceed a 32bit integer
+        if( (cf > 4294967040.0) or (cf < -4294967040.0) ) return print( "ovf" );
 
-                // reset options,  << reset
-                self&
-reset           ()
-                {
-                count_ = 0;
-                errors_ = 0;
-                optionB_ = 10;
-                optionFIL_ = 0;
-                optionWMIN_ = 0;
-                optionWMAX_ = 0;
-            #if FMT_DOUBLE_ || FMT_FLOAT_
-                optionPRE_ = 9; //0 is a usable value (no decimal), so cannot use 0
-            #endif
-                optionPOS_ = false;
-                optionSB_ = false;
-                optionBA_ = false;
-                optionJL_ = false;
-                optionUC_ = false;
-                return *this;
+        //values used to get fractional part into integer, based on precision 1-9
+        static constexpr u32 mulTbl[PRECISION_MAX+1]
+             { 1,10,100,1000,10000,100000,1000000,10000000,100000000,1000000000 };
+        static constexpr auto BUFSZ{ 22 };          //10.10\0
+        char str[BUFSZ];                            //fill top to bottom (high to low)
+        auto idx = BUFSZ;                           //top+1, since pre-decrementing
+        auto insert = [&](char c){ str[--idx] = c; }; //pre-decrement idx so is always pointing to start
+
+        auto pre = precision_;                      //copy
+        auto f = cf;                                //copy
+        if( f < 0.0 ){ isNeg_ = true; f = -f; }     //make positive if needed
+        auto fi = (u32)f;                           //fi = integer part
+        insert(0);                                  //0 terminate string
+
+        //deal with fractional part if precision is not 0
+        if( pre ){
+            auto pw = mulTbl[pre];                  //table mul value to get desired fractional part moved up
+            f = (f - fi) * pw;                      //f = desired fractional part moved up to integer
+            auto i = (u32)f;                        //i = integer part of desired fraction
+            f -= i;                                 //f now contains the remaining/unused fraction
+
+            if( (f >= 0.5) and (++i >= pw) ){       //if need to round up- inc i, check for overflow (the table value)
+                i = 0;                              //i overflow, set i to 0
+                fi++;                               //propogate into (original) integer part
                 }
+            while( insert((i % 10) + '0'), i /= 10, --pre ){} //add each fractional digit
+            insert('.');                            //add dp
+            }
 
-                // << setw(n) - minumum width, n limited to sane value via OPTIONWMIN_MAX
-                self&
-width           (const int v)
-                { optionWMIN_ = v > OPTIONWMIN_MAX ? OPTIONWMIN_MAX : v; return *this; }
+        //deal with integer part
+        while( insert((fi % 10) + '0'), fi /= 10 ){}//add each integer digit
+        if( isNeg_ ) insert('-');                   //if neg, now add '-'
+        else if( pos_ ) insert('+');                //if positive and pos wanted, add '+'
 
-                // << setwmax(40) - maximum width (truncate output)
-                // OPTIONWMAX_MAX is max value, and 0 will result in OPTIONWMAX_MAX
-                self&
-widthmax        (const unsigned int v)
-                { optionWMAX_ = v and (v < OPTIONWMAX_MAX) ? v : OPTIONWMAX_MAX; return *this; }
+        return print( &str[idx] );                  //call string version of print
+        }
 
-                // << bin|oct|dec|hex
-                // base is max of 16, as the hex table is only 0-F
-                self&
-base            (const int v)
-                {
-                if( v >= 16 ) optionB_ = 16;
-                else optionB_ = v bitand 10 ? v bitand 10 : 10;//-> base 2,8,10, else 10
-                //(if 1,4,5 sneaked in, switch resulting 0 to base 10)
-                return *this;
-                }
+        //reset all options to default (except newline), clear count
+        auto&
+print   (FMT_RESET e)
+        {
+        (void)e;
+        just_ = left;
+        showbase_ = noshowbase;
+        uppercase_ = nouppercase;
+        alpha_ = noshowalpha;
+        pos_ = noshowpos;
+        isNeg_ = false;
+        count_ = 0;
+        width_ = 0;
+        fill_ = ' ';
+        base_ = dec;
+        precision_ = PRECISION_MAX;
+        return *this;
+        }
 
-            #if FMT_DOUBLE_ || FMT_FLOAT_
-                // << setprecision(n)
-                self&
-precision       (const int v)
-                { optionPRE_ = v > FMT_PREMAX_ ? FMT_PREMAX_ : v; return *this; }
-            #endif
+        //all other printing overloaded print functions
+        auto& print     (const i32 n)       { u32 nu = n; if( n < 0 ){ isNeg_ = true; nu = -nu; } return print( nu ); }
+        auto& print     (const int n)       { u32 nu = n; if( n < 0 ){ isNeg_ = true; nu = -nu; } return print( nu ); }
+        auto& print     (const i16 n)       { return print( (i32)n ); }
+        auto& print     (const u16 n)       { return print( (u32)n ); }
+        auto& print     (const char c)      { write_( c ); return *this;}
+        auto& print     (const bool tf)     { return alpha_ ? print( tf ? "true" : "false" ) : print( tf ? '1' : '0'); }
 
-                // << setfill('char') (default value is ' ', unset is also ' ')
-                self&
-fill            (const char c = ' ')
-                { optionFIL_ = c; return *this; }
+        //non-printing overloaded print functions deduced via enum
+        auto& print     (FMT_BASE e)        { base_ = e; return *this;}
+        auto& print     (FMT_SHOWBASE e)    { showbase_ = e; return *this;}
+        auto& print     (FMT_UPPERCASE e)   { uppercase_ = e; return *this;}
+        auto& print     (FMT_SHOWALPHA e)   { alpha_ = e; return *this;}
+        auto& print     (FMT_SHOWPOS e)     { pos_ = e; return *this;}
+        auto& print     (FMT_JUSTIFY e)     { just_ = e; return *this;}
+        auto& print     (FMT_ENDL e)        { (void)e; return print( nl_ ); }
+        auto& print     (FMT_ENDL2 e)       { (void)e; return print( nl_), print( nl_ ); }
+        auto& print     (FMT_COUNTCLR e)    { (void)e; count_ = 0; return *this;}
 
-                // << noshowpos , << showpos , + for dec base values
-                self&
-positive        (const bool tf)
-                { optionPOS_ = tf; return *this; }
+        //non-printing functions needing a non-enum value, typically called by operator<< code
+        auto& width     (int v)             { width_ = v; return *this; } //setw
+        auto& fill      (int v)             { fill_ = v; return *this; } //setfill
+        auto& precision (int v)             { precision_ = v > PRECISION_MAX ? PRECISION_MAX : v; return *this; } //setprecision
 
-                // << noshowalpha , << showalpha , bool "true"/"false or 1 0
-                self&
-boolalpha       (const bool tf)
-                { optionBA_ = tf; return *this; }
+        //setup newline char(s) (up to 2)
+        auto& newline   (const char* str)   { nl_[0] = str[0]; nl_[1] = str[1]; return *this; } //setnewline
 
-                // << left, << right , justify output left/right if min width > output
-                self&
-justify         (const bool tf)
-                { optionJL_ = tf; return *this; }
+        //return current char count (the only public function that does not return *this)
+        int   count     ()                  { return count_; }
 
-                // << uppercase, << nouppercase , for hex only (A-F/a-f)
-                self&
-uppercase       (const bool tf)
-                { optionUC_ = tf; return *this; }
+//----------
+  private:
+//----------
 
-                // << showbase, << noshowbase , 0x 0b 0 (for oct if value not 0)
-                self&
-showbase        (const bool tf)
-                { optionSB_ = tf; return *this; }
+        //a helper write so we can keep a count of chars written (successfully)
+        //(if any write fails as defined by the parent class (returns false), the failure
+        // is only reflected in the count and not used any further)
+        void write_  (const char c)     { if( write(c) ) count_++; }
 
-                // << endl , newline as set in NL_
-                self&
-newline         ()
-                { //if NL_[0] was set to \0, will get it
-                put_( NL_[0] );
-                if( NL_[1] ) put_( NL_[1] );
-                return *this;
-                }
+        virtual
+        bool write  (const char) = 0; //parent class creates this function
 
-                //string
-                //limit strlen wth strnlen
-                self&
-operator<<      (const char *str)
-                {
-                auto w = optionWMIN_;
-                auto wmax = optionWMAX_;                    //if 0, first --wmax will make it 0xFFFF (effectively no max limit)
-                auto fc = optionFIL_ ? optionFIL_ : ' ';    //if 0, is ' '
-                u32 i = w ? __builtin_strnlen( str,wmax ) : 0; //if w set, need str length
-                auto fill = [&]{ while( (w-- > i) and --wmax ) put_( fc ); }; //lambda
-                if( not optionJL_ ) fill();                 //justify right, fill first
-                while( *str and --wmax ) put_( *str++ );    //write str
-                if( optionJL_ ) fill();                     //justify left, fill last
-                optionWMIN_ = 0;                            //setw always cleared after use
-                return *this;
-                }
-
-                //u64 (or u32 if no u64 support wanted)
-                self&
-operator<<      (const FMT_U64_ vu) //is u64 or u32
-                {
-                FMT_U64_ v = vu;
-                auto div = optionB_; //2,8,10,16 (already limited to only these values)
-                auto w = optionWMIN_;
-                auto fc = optionFIL_ ? optionFIL_ : ' ';  //0 is ' '
-                auto sb = (div == 8 and vu == 0) ? false : optionSB_; //oct 0 does not need showbase
-                u32 i = 0; //buf index
-                char buf[w > FMT_BUFMAX_ ? w : FMT_BUFMAX_]; //64bit binary with showbase uses 66 chars, 32bit 34
-                if( v == 0 ) buf[i++] = '0'; //if 0, add '0' as below loop will be skipped
-                //convert number
-                while( v ){
-                    auto c = hexTable[v % div];
-                    if( c >= 'a' and optionUC_ ) c and_eq compl (1<<5); //to uppercase if hex/uppercase
-                    buf[i++] = c;
-                    v /= div;
-                    }
-                //lambda functions
-                auto fill = [&](){ while( i < w ) buf[i++] = fc; };
-                auto xtras = [&](){
-                    if( div == 10 ) {                           //dec
-                        if( optionNEG_ ) buf[i++] = '-';        //negative
-                        else if( optionPOS_ ) buf[i++] = '+';   //positive and + wanted
-                        }
-                    else if( sb ){ // 2,8,16, showbase
-                        if( div == 16 ) buf[i++] = 'x';
-                        else if( div == 2 ) buf[i++] = 'b';
-                        buf[i++] = '0';
-                        }
-                };
-                //add -, 0b, 0x, 0, now if optionFIL_ is not '0'
-                //else add fill first
-                //(remember this is a reverse buffer)
-                if( fc == '0' ){ fill(); xtras(); } else { xtras(); fill(); }
-                //i is 1 past our last char, i will be at least 1
-                while( i ) put_( buf[--i] );
-                optionNEG_ = false; //always clear after use
-                optionWMIN_ = 0; //always clear after use
-                return *this;
-                }
-
-
-            #if FMT_DOUBLE_ || FMT_FLOAT_
-                //double or float
-                self&
-operator<<      (const FMT_FLOAT_TYPE_ d)
-                {
-                FMT_FLOAT_TYPE_ f = d;
-                //check for nan/inf
-                if( __builtin_isnan(f) ) return operator<<( "nan" );
-                if( __builtin_isinf_sign(f) ) return operator<<( "inf" );
-                if( f < 0 ){ optionNEG_ = true; f = -f; }
-                //save/restore any options we change that should normally remain unchanged
-                auto b = optionB_; optionB_ = 10;  //switch to dec
-                FMT_U64_ vi = f; //integer part
-                //get 1 more decimal precision than we need, so we can round up
-                auto i = optionPRE_;
-                FMT_U64_ mul = 10;                  //start at 1 more (10 instead of 1)
-                while( i-- ) mul *= 10;             //create multiplier from PRE value
-                FMT_U64_ vu = (f - vi) * mul;       //fractional part now integer
-                if( (vu % 10) >= 5 ) vu += 10;      //round up? (all are away from 0)
-                vu /= 10;                           //drop the extra decimal
-                if( optionPRE_ == 0 and vu ) vi++;  //precision set to 0, then use vu to round up
-                operator<<( vi );                   //write integer
-                if( optionPRE_ ){                   //if precision not 0, write decimal
-                    operator<<('.');                //decimal point
-                    optionWMIN_ = optionPRE_;       //min length from precision
-                    auto sp = optionPOS_; optionPOS_ = false; //no +
-                    auto fil = optionFIL_; optionFIL_ = '0'; //0 pad
-                    operator<<( vu );               //write decimal
-                    optionFIL_ = fil;               //restore values
-                    optionPOS_ = sp;
-                    }
-                optionB_ = b;                       //back to original base
-                return *this;
-                }
-            #endif //FMT_DOUBLE_ || FMT_FLOAT_
-
-
-                // the i64 (or i32) handles the negative numbers, then sends to u64 or u32
-                // only negated if < 0 when using dec base
-
-
-                //i64 (or i32)
-                self&
-operator<<      (const FMT_I64_ v)
-                {
-                if( v >= 0 or optionB_ != 10 ) return operator<<( (FMT_U64_)v );
-                optionNEG_ = true;
-                return operator<<( (FMT_U64_)-v );
-                }
-
-                //not sure why these are needed, but compiler didn't know what to choose when
-                //it saw an int, although it is the same as an i32
-                self&
-operator<<      (const unsigned int vu) { return operator<<( (FMT_U64_)vu ); }
-                self&
-operator<<      (const int v) { return operator<<( (FMT_I64_)v ); }
-
-
-            #if FMT_USE_U64_ //then need u32/i32 versions
-                self&
-operator<<      (const u32 vu) { return operator<<( (u64)vu ); }
-                self&
-operator<<      (const i32 v) { return operator<<( (i64)v ); }
-            #endif
-
-                self&
-operator<<      (const i16 v) { return operator<<( (FMT_I64_)v ); }
-                self&
-operator<<      (const u16 vu) { return operator<<( (FMT_U64_)vu ); }
-                self&
-operator<<      (const i8 v) { return operator<<( (FMT_I64_)v ); }
-                self&
-operator<<      (const u8 vu) { return operator<<( (FMT_U64_)vu ); }
-                self&
-operator<<      (const char v) { put_( v bitand 0xFF ); return *this; }
-                self&
-operator<<      (const bool v)
-                {
-                if( optionBA_ ) return operator<<( v ? "true" : "false" );
-                return operator<<( (FMT_U64_)v );
-                }
-
-//-------------|
-    private:
-//-------------|
-
-                //parent class has the put function
-                virtual bool
-put             (const char) = 0;
-
-                //helper put, so we can also inc count for each char written
-                //and count errors (whatever an error may be)
-                void
-put_            (const char c)
-                { if( put(c) ) count_++; else errors_++; }
-
-
-                static constexpr char hexTable[]{ "0123456789abcdef" };
-                static constexpr auto OPTIONWMIN_MAX{ 128 }; //maximum value of optionWMIN_
-                static constexpr auto OPTIONWMAX_MAX{ 256 }; //maximum value of optionWMAX_
-
-                char NL_[3]     {"\r\n"};   //newline combo, can be changed at runtime
-                u16  count_     { 0 };      //number of chars printed
-                u16  errors_    { 0 };      //store any errors along the way
-                u16  optionWMIN_{ 0 };      //minimum width
-                u16  optionWMAX_{ OPTIONWMAX_MAX }; //maximum width (also limits strnlen in a function)
-                u8   optionB_   { 10 };     //base 2,8,10,16
-            #if FMT_DOUBLE_ || FMT_FLOAT_
-                u8   optionPRE_ { 9 };      //float/double precision (decimal places)
-            #endif
-                char optionFIL_ { 0 };      //setfill char (0 is ' ')
-                bool optionUC_  { false };  //uppercase/nouppercase
-                bool optionSB_  { false };  //showbase/noshowbase
-                bool optionNEG_ { false };  //is negative?
-                bool optionPOS_ { false };  //showpos/noshowpos
-                bool optionBA_  { false };  //boolalpha/noboolalpha
-                bool optionJL_  { false };  //(justify) left/right
-
-        #undef self
-        #undef FMT_U64_
-        #undef FMT_I64_
-        #undef FMT_BUFMAX_
-        #undef FMT_USE_U64_
-        #undef FMT_PREMAX_
+        char            nl_[3]      { '\n', '\0', '\0' };
+        FMT_JUSTIFY     just_       { left };
+        FMT_SHOWBASE    showbase_   { noshowbase };
+        FMT_UPPERCASE   uppercase_  { nouppercase };
+        FMT_SHOWALPHA   alpha_      { noshowalpha };
+        FMT_SHOWPOS     pos_        { noshowpos };
+        bool            isNeg_      { false };  //inform other functions a number was originally negative
+        int             width_      { 0 };
+        char            fill_       { ' ' };
+        int             count_      { 0 };
+        u8              precision_  { PRECISION_MAX };
+        FMT_BASE        base_       { dec };
 
 };
 
+//==================================================================
+// FMT::PrintNull class (no  output, optimizes away all uses)
+//==================================================================
+class PrintNull {}; //just a class type, nothing inside
 
-/*-------------------------------------------------------------
-    Format helpers for << put in a fmt namespace
-
-    can bring in namespace if wanted-
-        using namespace fmt;
-
-* = non-standard
-
-    setw(w)         set minimum width n (Format class sets a limit to this value)
-*   setwmax(n)      set maximum width of output (0 is no max limit)
-
-    setfill(c)      set fill char, default is ' '
-
-    endl            write newline combo as specified in Format class
-
-*   bin             set base to 2
-    oct             set base to 8
-    dec             set base to 10 (default)
-    hex             set base to 16
-
-*   reset           set options to default, clear count, error
-
-    noshowpos       no + for dec
-    showpos         show + for dec that are positive
-
-    showalpha       bool is "true" or "false"
-    noshowalpha     bool is 1 or 0 (treated as unsigned int)
-
-    left            justify output left
-    right           justify output right
-
-    uppercase       hex output uppercase
-    nouppercase     hex output lowercase
-
-    setprecision    set decimal precision for float/double
-
-    all options remain set except for setw(), which is cleared
-    after use, also <<clear resets all options
---------------------------------------------------------------*/
-namespace fmt {
-
-// w/argument - << name(arg)
-
-                struct Setw_fmt { int n; };
-                inline Setw_fmt
-setw            (int n) { return {n}; }
-                inline Format&
-                operator<<(Format& p, Setw_fmt s)
-                { return p.width(s.n); }
-
-                struct SetwMax_fmt { int n; };
-                inline SetwMax_fmt
-setwmax         (int n) { return {n}; }
-                inline Format&
-                operator<<(Format& p, SetwMax_fmt s)
-                { return p.widthmax(s.n); }
-
-                struct Setfill_fmt { char c; };
-                inline Setfill_fmt
-setfill         (char c = ' ') { return {c}; }
-                inline Format&
-                operator<<(Format& p, Setfill_fmt s)
-                { return p.fill(s.c); }
-
-            #if FMT_DOUBLE_ || FMT_FLOAT_
-                struct Setprecision_fmt { int n; };
-                inline Setprecision_fmt
-setprecision    (int n) { return {n}; }
-                inline Format&
-                operator<<(Format& p, Setprecision_fmt s)
-                { return p.precision(s.n); }
-            #endif
-            #undef FMT_DOUBLE_ //done with these defines
-            #undef FMT_FLOAT_
-
-//no argumets -  << name <<
-
-                enum ENDL_fmt {
-endl            };
-                inline Format&
-                operator<<(Format& p, ENDL_fmt e)
-                { (void)e; return p.newline(); }
-
-                enum BASE_fmt {
-bin             = 2,
-oct             = 8,
-dec             = 10,
-hex             = 16 };
-                inline Format&
-                operator<<(Format& p, BASE_fmt e)
-                { return p.base(e); }
-
-                enum RESET_fmt {
-reset           };
-                inline Format&
-                operator<<(Format& p, RESET_fmt e)
-                { (void)e; return p.reset(); }
-
-                enum POSITIVE_fmt {
-noshowpos,
-showpos         };
-                inline Format&
-                operator<<(Format& p, POSITIVE_fmt e)
-                { return p.positive(e); }
-
-                enum ALPHA_fmt {
-noshowalpha,
-showalpha       };
-                inline Format&
-                operator<<(Format& p, ALPHA_fmt e)
-                { return p.boolalpha(e); }
-
-                enum JUSTIFY_fmt {
-right,
-left            };
-                inline Format&
-                operator<<(Format& p, JUSTIFY_fmt e)
-                { return p.justify(e); }
-
-                enum UPPERCASE_fmt {
-nouppercase,
-uppercase       };
-                inline Format&
-                operator<<(Format& p, UPPERCASE_fmt e)
-                { return p.uppercase(e); }
-
-                enum SHOWBASE_fmt {
-noshowbase,
-showbase        };
-                inline Format&
-                operator<<(Format& p, SHOWBASE_fmt e)
-                { return p.showbase(e); }
+//==================================================================
+// operator <<
+//==================================================================
+                //for PrintNull- do nothing, and
+                // return the same PrintNull reference passed in
+                // (nothing done, no code produced when optimized)
+                template<typename T> PrintNull& //anything passed in
+operator <<     (PrintNull& p, T t){ (void)t; return p; }
 
 
-//combo helpers to reduce some verbosity, macros seem to be the
-//easiest instead of creating more of the above which will end
-//up doing exactly the same thing, and can be easily changed
-#define setwf(n,c)      fmt::setw(n) << fmt::setfill(c)
-#define hex0x           fmt::hex << fmt::showbase
-#define Hex             fmt::hex << fmt::uppercase
-#define Hex0x           fmt::hex << fmt::showbase << fmt::uppercase
-#define bin0b           fmt::bin << fmt::showbase
-#define endlr           fmt::endl << fmt::reset
-#define endl2           fmt::endl << fmt::endl
-#define endl2r          fmt::endl << fmt::endl << fmt::reset
-#define cdup(c,n)       setwf(n,c) << ""
-//if wanted to translate to the pc, then replace fmt:: with std::,
-//and define a reset to clear flags with std::setf(v)
+                //for Print-
+                //use structs to contain a value or values and make it unique
+                // so values can be distinguished from values to print,
+                // also allows more arguments to be passed into operator <<
 
-}
+                //everything else pass to print() and let the Print class sort it out
+                template<typename T> Print&
+operator <<     (Print& p, T t) { return p.print( t ); }
 
+                //the functions which require a value will return
+                //a struct with a value or values which then gets used by <<
+                //all functions called in Print are public, so no need to 'friend' these
 
+// << setw(10)
+struct Setw                     { int n; };
+inline Setw     setw            (int n)              { return {n}; }
+inline Print&   operator<<      (Print& p, Setw s)   { return p.width(s.n); }
 
-/*------------------------------------------------------------------------------
-    Null Format device - a black hole
-        overrides all the public functions in Format with empty functions,
-        so compiler will optimize away all uses of Format for an instance
-        which inherits Format
+// << setfill(' ')
+struct Setf                     { char c; };
+inline Setf     setfill         (char c)             { return {c}; }
+inline Print&   operator<<      (Print& p, Setf s)   { return p.fill(s.c); }
 
-    one way to use this-
+// << setprecision(4)
+struct Setp                     { int n; };
+inline Setp     setprecision    (int n)              { return {n}; }
+inline Print&   operator<<      (Print& p, Setp s)   { return p.precision(s.n); }
 
-    using UartFormatT = Format;
-    //using UartFormatT = NullFormat; //not wanted
-    class Uart : public UartFormatT {
+// << cdup('=', 40)
+struct Setdup                   { char c; int n; };
+inline Setdup   cdup            (char c, int n)      { return {c,n}; }
+inline Print&   operator<<      (Print& p, Setdup s) { p.width(s.n); return p.print(""); }
 
-    Uart u;
-    u.init( 230400 ); //will still run the Uart init function
-    u << 123 << endl; //will depend on UartFormatT,
-                      //optimizes away if set to NullFormat
+// << setwf(8,'0')
+struct Setwf                    { int n; char c; };
+inline Setwf    setwf           (int n, char c)      { return {n,c}; }
+inline Print&   operator<<      (Print& p, Setwf s)  { p.width(s.n); return p.fill(s.c); }
 
+// << hexpad(8) << 0x1a  -->> 0000001a
+struct Padh                     { int n; };
+inline Padh     hexpad          (int n)              { return {n}; }
+inline Print&   operator<<      (Print& p, Padh s)   { return p << hex << nouppercase << noshowbase << internal << setwf(s.n,'0'); }
 
-    using DebuRttT = DevRtt<0>; //debug output wanted
-    // using DebuRttT = NullFormat; //if want no debug output
-    inline DebuRttT DebugRtt; //uses type specified above
+// << Hexpad(8) << 0x1a  -->> 0000001A
+struct PadH                     { int n; };
+inline PadH     Hexpad          (int n)              { return {n}; }
+inline Print&   operator<<      (Print& p, PadH s)   { return p << hex << uppercase << noshowbase << internal << setwf(s.n,'0'); }
 
-    DebugRtt << FG BLUE << "Booting..." << endl; //either outputs, or optimized away
+// << hex0xpad(8) << 0x1a  -->> 0x0000001a
+struct Padh0x                   { int n; };
+inline Padh0x   hex0xpad        (int n)              { return {n}; }
+inline Print&   operator<<      (Print& p, Padh0x s) { return p << hex << nouppercase << showbase << internal << setwf(s.n,'0'); }
 
-------------------------------------------------------------------------------*/
-class NullFormat : public Format {
+// << Hex0xpad(8) << 0x1a  -->> 0x0000001A
+struct PadH0x                   { int n; };
+inline PadH0x   Hex0xpad        (int n)              { return {n}; }
+inline Print&   operator<<      (Print& p, PadH0x s) { return p << hex << uppercase << showbase << internal << setwf(s.n,'0'); }
 
-                //Format virtual put, 1 char
-                virtual bool //unused, as it is never called
-put             (const char c) { (void)c; return 0; }
+// << decpad(8) << 123  -->> 00000123
+struct PadD                     { int n; };
+inline PadD     decpad          (int n)              { return {n}; }
+inline Print&   operator<<      (Print& p, PadD s)   { return p << dec << internal << setwf(s.n,'0'); }
 
-public:
-auto count      (){ return 0; }
-auto errors     (){ return 0; }
-auto newline    (const char a, const char b = 0) { (void)a; (void)b; return *this; }
-auto reset      () { return *this; }
-auto width      (const int v) { (void)v; return *this; }
-auto widthmax   (const unsigned int v) { (void)v; return *this; }
-auto base       (const int v) { (void)v; return *this; }
-auto precision  (const int v) { (void)v; return *this; }
-auto fill       (const char c = ' ') { (void)c; return *this; }
-auto positive   (const bool tf) { (void)tf; return *this; }
-auto boolalpha  (const bool tf) { (void)tf; return *this; }
-auto justifyleft(const bool tf) { (void)tf; return *this; }
-auto uppercase  (const bool tf) { (void)tf; return *this; }
-auto showbase   (const bool tf) { (void)tf; return *this; }
-auto newline    () { return *this; }
+// << binpad(8) << 123  -->> 01111011
+struct PadB                     { int n; };
+inline PadB     binpad          (int n)              { return {n}; }
+inline Print&   operator<<      (Print& p, PadB s)   { return p << bin << noshowbase << internal << setwf(s.n,'0'); }
 
-                template<typename T> // << anything
-auto operator<< (T t) { return *this; }
+// << bin0bpad(8) << 123  -->> 0b01111011
+struct PadB0b                   { int n; };
+inline PadB0b   bin0bpad        (int n)              { return {n}; }
+inline Print&   operator<<      (Print& p, PadB0b s) { return p << bin << showbase << internal << setwf(s.n,'0'); }
 
-
-};
-
-
-/*------------------------------------------------------------------------------
-    Buffer Format device - like snprintf with some extras
-
-    BufFormat<32> bp;   //32 usable bytes allocated for buffer
-                        //33 bytes allocated for buffer (buffer adds 1)
-
-    buffer is always 0 terminated in the class, although possible to manipulate
-    the buffer outside as a pointer is available via buf(), size/length will
-    0 the last byte so cannot get into problems (the last extra byte allocated
-    in the buffer belongs to the buffer so is free to clear it anytime)
-
-    bp << "test" << 123; // bp.buf_ = "test123", 0 terminated
-    can use bp in a Format << , which returns its buffer
-    dev << bp << 456; // prints "test123456"
-    bp.clear() << "hello"; // buf = "hello",  0 terminated
-------------------------------------------------------------------------------*/
-template<unsigned N>
-class BufFormat : public Format {
-
-//-------------|
-    public:
-//-------------|
-
-BufFormat       (){ buf_[0] = 0; } //0 terminate
-
-                auto
-buf             () { return buf_; }
-                auto
-clear           () { buf_[0] = 0; count_ = 0; return *this; }
-                auto //in case someone messed with buffer, 0 terminate first
-length          () { buf_[N] = 0; return __builtin_strlen(buf_); }
-                auto
-size            () { return length(); }
-                auto
-operator[]      (int n) { return (n >= 0 and (n < (N-1))) ? buf_[n] : '\0'; }
-
-//-------------|
-    private:
-//-------------|
-
-                //Format virtual put, 1 char
-                virtual bool
-put             (const char c)
-                {
-                if( count_ < (N-1) ) {
-                    buf_[count_++] = c;
-                    buf_[count_] = 0; //0 terminate
-                    return true;
-                    }
-                return false;
-                }
-
-                char buf_[N+1]; //we add the space for terminating '\0'
-                u16 count_{0};
-
-};
-namespace fmt {
-
-                //so can  Format << bufFormat  and get the buffer printed out
-                template<unsigned N>
-                inline Format&
-                operator<<(Format& p, BufFormat<N>& b)
-                { return p.operator<<( b.buf() ); }
-
-}
+} // FMT namespace end
+//==================================================================
+//==================================================================
 
 
 /*-------------------------------------------------------------
@@ -808,4 +462,3 @@ namespace fmt {
 #define YELLOW                   RGB(255,255,0)
 #define YELLOW_GREEN             RGB(154,205,50)
 
-using namespace fmt;
