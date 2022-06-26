@@ -41,54 +41,54 @@ PIN             {
 #include "Gpio.hpp"
 
 
-static constexpr Uart::usartT Uart1_A9A10 {
+static constexpr Uart::uartT Uart1_A9A10 {
     //c++ designated initializers have to be in order
     //just shown here for info
     .uart = USART1,
     .txPin = PINS::PA9,  .txAltFunc = PINS::AF1,
     .rxPin = PINS::PA10, .rxAltFunc = PINS::AF1,
     .rccEnable = []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; }
-};
-static constexpr Uart::usartT Uart1_A9B7 {
+    };
+static constexpr Uart::uartT Uart1_A9B7 {
     USART1,
     PINS::PA9, PINS::AF1,
     PINS::PB7, PINS::AF0,
     []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; }
-};
-static constexpr Uart::usartT Uart1_B6A10 {
+    };
+static constexpr Uart::uartT Uart1_B6A10 {
     USART1,
     PINS::PB6, PINS::AF0,
     PINS::PA10, PINS::AF1,
     []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; }
-};
-static constexpr Uart::usartT Uart1_B6B7 {
+    };
+static constexpr Uart::uartT Uart1_B6B7 {
     USART1,
     PINS::PB6, PINS::AF0,
     PINS::PB7, PINS::AF0,
     []{ RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk; }
-};
+    };
 
-static constexpr Uart::usartT Uart2_A2A3 {
+static constexpr Uart::uartT Uart2_A2A3 {
     USART2,
     PINS::PA2, PINS::AF1,
     PINS::PA3, PINS::AF1,
     []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; }
-};
-static constexpr Uart::usartT Uart2_A2A15 {
+    };
+static constexpr Uart::uartT Uart2_A2A15 {
     USART2,
     PINS::PA2, PINS::AF1,
     PINS::PA15, PINS::AF1,
     []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; }
-};
-static constexpr Uart::usartT Uart2_A14A3 {
+    };
+static constexpr Uart::uartT Uart2_A14A3 {
     USART2,
     PINS::PA14, PINS::AF1,
     PINS::PA3, PINS::AF1,
     []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; }
-};
-static constexpr Uart::usartT Uart2_A14A15 {
+    };
+static constexpr Uart::uartT Uart2_A14A15 {
     USART2,
     PINS::PA14, PINS::AF1,
     PINS::PA15, PINS::AF1,
     []{ RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk; }
-};
+    };

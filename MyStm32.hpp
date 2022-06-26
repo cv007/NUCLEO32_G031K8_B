@@ -44,7 +44,9 @@ using namespace UTIL;
 --------------------------------------------------------------*/
 #include "Boards.hpp"
 inline Boards::Nucleo32g031 board;      //everyone can access
-inline Uart uart{ board.uart, 1000000 }; //everyone can access
+
+inline u8 uartBuffer[64];               //create a buffer for uart
+inline Uart uart{ board.uart, 1000000, uartBuffer, 64 }; //everyone can access
 
 using namespace PINS;                   //bring into global namespace
 using namespace FMT;

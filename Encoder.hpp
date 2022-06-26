@@ -27,20 +27,20 @@
     irqFunction(
         EXTI0_1_IRQn,
         [](){ encoder3.isr(); }
-    );
+        );
     irqFunction(
         EXTI2_3_IRQn,
         [](){ encoder3.isr(); }
-    );
+        );
     irqFunction(
         EXTI4_15_IRQn,
         [](){ encoder1.isr(); encoder2.isr(); }
-    );
+        );
 
     cannot put the .isr() function directly in the vector table as an
-    encode instance is required (encode class not static), so will need to 
+    encode instance is required (encode class not static), so will need to
     create a function that calls .isr(), and in the above these functions are
-    lambda functions which cal be used to dispatch any calls needed to 
+    lambda functions which cal be used to dispatch any calls needed to
     service that interrupt
 
 -----------------------------------------------------------------------------*/

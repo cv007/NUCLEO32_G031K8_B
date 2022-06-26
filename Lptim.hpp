@@ -5,31 +5,30 @@
 //RccLptim class to handle Lptim needs
 class RccLptim {
     protected:
-    auto LSIon(){ RCC->CSR or_eq RCC_CSR_LSION; }
-    auto LSIoff(){ RCC->CSR and_eq RCC_CSR_LSION; }
-    auto LSIready(){ return RCC->CSR bitand RCC_CSR_LSIRDY; }
+    auto LSIon      (){ RCC->CSR or_eq RCC_CSR_LSION; }
+    auto LSIoff    (){ RCC->CSR and_eq RCC_CSR_LSION; }
+    auto LSIisReady(){ return RCC->CSR bitand RCC_CSR_LSIRDY; }
 
     enum LPTIM_CLKSRC { LPTIM_PCLK, LPTIM_LSI, LPTIM_HSI16, LPTIM_LSE };
     //assuming only 2 LPTIM instances, if more then need to add
-    auto lptimeClock(LPTIM_TypeDef* t, LPTIM_CLKSRC e){
+    auto clockSource(LPTIM_TypeDef* t, LPTIM_CLKSRC e){
         auto bmclr = t == LPTIM1 ? RCC_CCIPR_LPTIM1SEL : RCC_CCIPR_LPTIM2SEL;
         auto bmset = t == LPTIM1 ? e<<RCC_CCIPR_LPTIM1SEL_Pos : e<<RCC_CCIPR_LPTIM2SEL_Pos;
         RCC->CCIPR = (RCC->CCIPR bitand bmclr) bitor bmset;
         }
-    auto lptimEnable(LPTIM_TypeDef* t){
+    auto enable(LPTIM_TypeDef* t){
         auto bm = t == LPTIM1 ? RCC_APBSMENR1_LPTIM1SMEN : RCC_APBSMENR1_LPTIM2SMEN;
         RCC->APBENR1 or_eq bm;
         }
-    auto lptimDisable(LPTIM_TypeDef* t){
+    auto disable(LPTIM_TypeDef* t){
         auto bm = t == LPTIM1 ? RCC_APBSMENR1_LPTIM1SMEN : RCC_APBSMENR1_LPTIM2SMEN;
         RCC->APBENR1 and_eq compl bm;
         }
-    auto lptimReset(LPTIM_TypeDef* t){
+    auto reset(LPTIM_TypeDef* t){
         auto bm = t == LPTIM1 ? RCC_APBRSTR1_LPTIM1RST : RCC_APBRSTR1_LPTIM2RST;
         RCC->APBRSTR1 or_eq bm;
         RCC->APBRSTR1 and_eq compl bm;
         }
-
 };
 
 /*=============================================================
@@ -71,7 +70,7 @@ Lptim           (LPTIM_TypeDef* t) : lptim_(*t) {}
                 //      will enable/disable lptim as needed and leave lptim in that state
 
                 auto
-reset           (){ lptimReset(&lptim_); return *this; }
+reset           (){ RccLptim::reset(&lptim_); return *this; }
                 auto
 on              (){ lptim_.CR or_eq ENABLEbm; return *this; }
                 auto
@@ -95,11 +94,11 @@ setReload       (u16 v) { on(); lptim_.ARR = v; return *this; }
 count           () { u16 v; while( v = lptim_.CNT, v != lptim_.CNT ){} return v; }
 
                 auto
-clksel          (CLKSRC e)
+clockSource     (CLKSRC e)
                 {
-                if( e == LSI ) LSIon();                           //enable LSI clock
-                if( e != EXTIN ) lptimeClock( &lptim_, (RccLptim::LPTIM_CLKSRC)e );  //clock source
-                lptimEnable( &lptim_ );                                    //LPTIMx clock enable
+                if( e == LSI ) LSIon();                                 //enable LSI clock
+                if( e != EXTIN ) RccLptim::clockSource( &lptim_, (RccLptim::LPTIM_CLKSRC)e );  //clock source
+                RccLptim::enable( &lptim_ );                            //LPTIMx clock enable
                 off();                                                  //needed to write to CFGR
                 if( e == EXTIN ) lptim_.CFGR or_eq 1;                   //CKSEL, 0=int clock, 1=ext in
                     else lptim_.CFGR and_eq 1;
@@ -114,7 +113,7 @@ clksel          (CLKSRC e)
 
 
 /*=============================================================
-    LptimRepeatFunction - low power timer (LPTIM1, LPTIM2)
+    LptimRepeatDo - low power timer (LPTIM1, LPTIM2)
     internal LSI only, ~32khz
     simple usage to run a function at intervals < ~2sec
 =============================================================*/
@@ -124,7 +123,7 @@ operator "" _ms_lptim(u64 ms) -> u16 { return ms > 2048 ? 65535 : ms*32ul-1; }
 
 
 
-struct LptimRepeatFunction : Lptim {
+struct LptimRepeatDo : Lptim {
 
 //-------------|
     private:
@@ -132,7 +131,7 @@ struct LptimRepeatFunction : Lptim {
 
                 //vars
                 void(*isrFunc_)();    //store isr function to call
-                static inline LptimRepeatFunction* instances_[2]; //for isr use, assuming only lptim1 and lptim2
+                static inline LptimRepeatDo* instances_[2]; //for isr use, assuming only lptim1 and lptim2
 
 //-------------|
     public:
@@ -141,7 +140,7 @@ struct LptimRepeatFunction : Lptim {
                 static void //static so can put in vector table
 isr             () //assuming only lptim1 and lptim2
                 { //get instance needed so we can call into it
-                LptimRepeatFunction* lptim = irqActive() == LPTIM1_IRQn ? instances_[0] : instances_[1];
+                LptimRepeatDo* lptim = irqActive() == LPTIM1_IRQn ? instances_[0] : instances_[1];
                 lptim->irqClear( lptim->ARRM );
                 if( lptim->isrFunc_ ) lptim->isrFunc_();  //call function, if set
                 }
@@ -153,7 +152,7 @@ reinit          (void(*isrfunc)(), u16 arrVal)
                 reset();
                 isrFunc_ = isrfunc;
                 if( not isrfunc ) return;           //no function, so nothing more to do
-                    clksel( LSI )
+                    clockSource( LSI )
                     .irqOn( ARRM )
                     .setReload( arrVal )
                     .startContinuous();
@@ -166,7 +165,7 @@ reinit          (u16 arrVal)                        //reuse previously set funct
                 }
 
 
-LptimRepeatFunction(LPTIM_TypeDef* t, void(*isrfunc)(), u16 arrVal)   //(use _ms_lptim to convert ms to arr value)
+LptimRepeatDo   (LPTIM_TypeDef* t, void(*isrfunc)(), u16 arrVal)   //(use _ms_lptim to convert ms to arr value)
                 : Lptim(t)
                 {
                 if( t == LPTIM1 ) instances_[0] = this; else instances_[1] = this;
@@ -181,14 +180,15 @@ LptimRepeatFunction(LPTIM_TypeDef* t, void(*isrfunc)(), u16 arrVal)   //(use _ms
 
 
 /*=============================================================
-    LptimPulseCounter - low power timer (LPTIM1, LPTIM2)
-    count pulses on PB5 (lptim1) or PB1 (lptim2)
+    LptimExtCounter - low power timer (LPTIM1, LPTIM2)
+    PB5 (lptim1) or PB1 (lptim2) drives lptim counter
     LPTIM1_IN1 = PB5, AF5
     LPTIM2_IN1 = PB1, AF5
 =============================================================*/
-enum LptimPulseCounterInstances { LptimPulseCounterPB5, LptimPulseCounterPB1 };
+//limit to available IN1's, and can deduce timer instance from it also
+enum LptimExtCounterInstances { LptimExtCounterPB5, LptimExtCounterPB1 };
 
-struct LptimPulseCounter : Lptim {
+struct LptimExtCounter : Lptim {
 
 //-------------|
     private:
@@ -196,14 +196,14 @@ struct LptimPulseCounter : Lptim {
 
                 //vars
                 volatile u16 pulseCountH_;//upper 16bits (CNT is lower 16bits)
-                static inline LptimPulseCounter* instances_[2]; //for isr use, assuming only lptim1 and lptim2
+                static inline LptimExtCounter* instances_[2]; //for isr use, assuming only lptim1 and lptim2
 
                 //functions
 
                 static void //static so can put in vector table
 isr             () //assuming only lptim1 and lptim2
                 { //get instance needed so we can call into it
-                LptimPulseCounter* lptim = irqActive() == LPTIM1_IRQn ? instances_[0] : instances_[1];
+                LptimExtCounter* lptim = irqActive() == LPTIM1_IRQn ? instances_[0] : instances_[1];
                 lptim->irqClear( lptim->ARRM );
                 lptim->pulseCountH_++; //upper 16 bits
                 }
@@ -217,7 +217,7 @@ isr             () //assuming only lptim1 and lptim2
 reinit          ()
                 {
                 reset()
-                    .clksel( EXTIN )
+                    .clockSource( EXTIN )
                     .irqOn( ARRM )
                     .setReload( 65535 )
                     .startContinuous();
@@ -234,13 +234,14 @@ count           ()
                 }
 
 
-LptimPulseCounter(LptimPulseCounterInstances e)
-                : Lptim( e == LptimPulseCounterPB5 ? LPTIM1 : LPTIM2 )
+LptimExtCounter (LptimExtCounterInstances e)
+                : Lptim( e == LptimExtCounterPB5 ? LPTIM1 : LPTIM2 )
                 {
-                if( e == LptimPulseCounterPB5 ) instances_[0] = this; else instances_[1] = this;
-                PIN pin = (e == LptimPulseCounterPB5) ? PB5 : PB1;
+                auto isLP1 = e == LptimExtCounterPB5;
+                if( isLP1 ) instances_[0] = this; else instances_[1] = this;
+                PIN pin = isLP1 ? PB5 : PB1;
                 GpioPin(pin).mode(INPUT).pull(PULLDOWN).altFunc(AF5);
-                irqFunction( e == LptimPulseCounterPB5 ? LPTIM1_IRQn : LPTIM2_IRQn, isr );
+                irqFunction( isLP1 ? LPTIM1_IRQn : LPTIM2_IRQn, isr );
                 reinit();
                 }
 

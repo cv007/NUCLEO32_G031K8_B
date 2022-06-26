@@ -269,7 +269,7 @@ main            ()
 #include "Lptim.hpp"
 
 //count pulses on PB1 ( D[3] )
-LptimPulseCounter lptimCounter{ LptimPulseCounterPB1 };
+LptimExtCounter lptimCounter{ LptimExtCounterPB1 };
 
 //need something to generate pulses (board does not provide
 //connections to uart2 or led, so will do this instead)
@@ -280,26 +280,25 @@ GpioPin pulseGen{ GpioPin(board.D[2]).mode(OUTPUT).off() };
 volatile u32 lptimIrqCount; //count lptim irq's, for fun
 
 //blink sos in morse code, 'dit' times are random range of values
-// Lptim1RepeatFunction lptim{
-LptimRepeatFunction lptim{
-    LPTIM1, //which timer (pulse counter is using LPTIM2)
-    []{     //lambda function
-        static constexpr bool sos[]{
-            1,0,1,0,1,0, 0,0,0,
-            1,1,1,0,1,1,1,0,1,1,1,0, 0,0,0,
-            1,0,1,0,1,0,
-            0,0,0,0,0,0,0 };
-        static auto sosIdx = 0u;
-        pulseGen.toggle(); //for lptimCounter clock source
-        board.led.on( sos[sosIdx] );
-        if( ++sosIdx >= arraySize(sos) ){
-            sosIdx = 0;
-            lptim.reinit( random16(80_ms_lptim, 200_ms_lptim) );
-            }
-        lptimIrqCount++;
-        }, //end lambda
-    100_ms_lptim, //start with 100ms
-};
+LptimRepeatDo lptim {
+                    LPTIM1, //which timer (pulse counter is using LPTIM2)
+                    []{     //lambda function, could move this to a named function also
+                        static constexpr bool sos[]{
+                            1,0,1,0,1,0, 0,0,0,
+                            1,1,1,0,1,1,1,0,1,1,1,0, 0,0,0,
+                            1,0,1,0,1,0,
+                            0,0,0,0,0,0,0 };
+                        static auto sosIdx = 0u;
+                        pulseGen.pulse(); //for lptimCounter clock source
+                        board.led.on( sos[sosIdx] );
+                        if( ++sosIdx >= arraySize(sos) ){
+                            sosIdx = 0;
+                            lptim.reinit( random16(80_ms_lptim, 200_ms_lptim) );
+                            }
+                        lptimIrqCount++;
+                        }, //end lambda
+                    100_ms_lptim, //start with 100ms
+                    };
 
 
 

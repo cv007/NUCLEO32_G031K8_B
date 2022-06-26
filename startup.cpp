@@ -11,6 +11,7 @@ using i16 = short;
 using flashVectorT = struct { u32* stackTop; void(*vfunc[3])(); };
 
 #define IIA [[ gnu::always_inline ]] inline static auto
+#define SCA static constexpr auto
 
 /*-----------------------------------------------------------------------------
     vars and constants
@@ -19,8 +20,8 @@ using flashVectorT = struct { u32* stackTop; void(*vfunc[3])(); };
     first location in ram so is aligned properly, _sramvector/_eramvector
     values added so we can init ram vector table in this startup code
 
-    .debugram section added to linker script so we can have some ram at a 
-    known/fixed location to put debug info in when needed ( like for 
+    .debugram section added to linker script so we can have some ram at a
+    known/fixed location to put debug info in when needed ( like for
     exceptions)
 
     symbols declared as an array as it seems the most flexible and easy
@@ -40,16 +41,16 @@ extern u32 _ezero       [];
 extern u32 _estack      [];     //stack address
 
 //setup linker symbols with nicer names
-static constexpr auto dataFlashStart    { _etext };
-static constexpr auto ramvectorStart    { _sramvector };
-static constexpr auto ramvectorEnd      { _eramvector };
-static constexpr auto debugramStart     { _sramdebug };
-static constexpr auto debugramEnd       { _eramdebug };
-static constexpr auto dataStart         { _srelocate };
-static constexpr auto dataEnd           { _erelocate };
-static constexpr auto bssStart          { _szero };
-static constexpr auto bssEnd            { _ezero };
-static constexpr auto stackTop          { _estack };
+SCA dataFlashStart      { _etext };
+SCA ramvectorStart      { _sramvector };
+SCA ramvectorEnd        { _eramvector };
+SCA debugramStart       { _sramdebug };
+SCA debugramEnd         { _eramdebug };
+SCA dataStart           { _srelocate };
+SCA dataEnd             { _erelocate };
+SCA bssStart            { _szero };
+SCA bssEnd              { _ezero };
+SCA stackTop            { _estack };
 
 //SCB.VTOR (vector table offset), SCB.AIRCR (for swReset)
 static volatile auto& VTOR              { *(volatile u32*)0xE000ED08 };
@@ -87,7 +88,7 @@ flashVectorT flashVector{ stackTop, {resetFunc, errorFunc, errorFunc } };
                 #pragma GCC optimize ("-Os")
                 IIA
 delayCycles     (volatile u32 n) { while( n -= CYCLES_PER_LOOP, n >= CYCLES_PER_LOOP ){} }
-                IIA 
+                IIA
 delayMS         (u16 ms){ delayCycles(FCPU_MHZ*1000*ms); }
                 #pragma GCC pop_options
 
@@ -100,7 +101,7 @@ cpymem          (u32* s, u32* e, u32* v) { while(s < e) *s++ = *v++; }
 
                 //software reset
                 [[ using gnu : used, noreturn ]] static void
-swReset         () 
+swReset         ()
                 {
                 asm( "dsb 0xF":::"memory");
                 AIRCR = 0x05FA0004;
@@ -110,8 +111,8 @@ swReset         ()
 
                 //unhandled interrupt, exception, or return from main
                 [[ using gnu : used, noreturn ]] static void
-errorFunc       () 
-                { 
+errorFunc       ()
+                {
                 //get main stack pointer, get the 8 stack entries which
                 //were possibly set by exception (r0-r3,r12,lr,pc,xpsr)
                 //and copy to debug ram
@@ -127,7 +128,7 @@ errorFunc       ()
                 IIA
 initRamDebug    ()
                 {
-                //if last debug ram not set to key value, 
+                //if last debug ram not set to key value,
                 //clear debug ram and set to key value
                 if( debugramEnd[-1] != 0x12345678 ) {
                     setmem( debugramStart, debugramEnd, 0 );
@@ -173,7 +174,7 @@ initRam         ()
 resetFunc       ()
                 {
                 delayMS(5000);          //allow time to allow swd hot-plug
-                initRam();              //ram vectors, normal data/bss init, etc.               
+                initRam();              //ram vectors, normal data/bss init, etc.
                 __libc_init_array();    //libc init, c++ constructors, etc.
 
                 //C++ will not allow using main with pendatic on, so disable pedantic

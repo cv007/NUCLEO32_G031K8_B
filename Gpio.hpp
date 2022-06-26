@@ -43,7 +43,7 @@ struct GpioPort {
                 II
 GpioPort        (PINS::PIN pin)
                 : port_( pin/16 ),
-                  reg_( *(reinterpret_cast<GPIO_TypeDef*>( GPIOA_BASE + (GPIOB_BASE-GPIOA_BASE)*(pin/16)) ) )
+                  reg_( *(GPIO_TypeDef*)(GPIOA_BASE + (GPIOB_BASE-GPIOA_BASE)*(pin/16)) )
                 {
                 }
 
@@ -132,7 +132,7 @@ altFunc         (PINS::ALTFUNC e)
                 auto bp = 4*(pin_ bitand 7), bmclr = compl (15<<bp), bmset = e<<bp;
                 r = (r bitand bmclr) bitor bmset;
                 mode( PINS::ALTERNATE );
-                return *this; 
+                return *this;
                 }
 
 // irq
@@ -164,55 +164,55 @@ isFlag          ()
                 }
 
                 II auto
-irqOff          () 
-                { 
+irqOff          ()
+                {
                 EXTI->IMR1 and_eq compl pinmask_;
-                return *this; 
+                return *this;
                 }
 
                 II auto
-irqOn           () 
-                { 
+irqOn           ()
+                {
                 RCC->APBENR2 or_eq RCC_APBENR2_SYSCFGEN; //so can read EXTI_LINEx
                 //set our port to use this pin irq
                 auto& r = EXTI->EXTICR[pin_/4];
                 auto bp = (pin_ bitand 3)*8 /*0,8,16,24*/, bmset = port_<<bp, bmclr = compl (0xFF<<bp);
                 r = (r bitand bmclr) bitor bmset;
                 isFlag(); //clear flags
-                EXTI->IMR1 or_eq pinmask_; 
-                return *this; 
-                } 
+                EXTI->IMR1 or_eq pinmask_;
+                return *this;
+                }
 
                 II auto
-irqNoEdges      () 
-                { 
-                EXTI->FTSR1 and_eq compl pinmask_; 
+irqNoEdges      ()
+                {
+                EXTI->FTSR1 and_eq compl pinmask_;
                 EXTI->RTSR1 and_eq compl pinmask_;
-                return *this; 
+                return *this;
                 }
 
                 II auto
-irqRising       () 
-                { 
-                EXTI->FTSR1 and_eq compl pinmask_; 
-                EXTI->RTSR1 or_eq pinmask_; 
-                return *this; 
+irqRising       ()
+                {
+                EXTI->FTSR1 and_eq compl pinmask_;
+                EXTI->RTSR1 or_eq pinmask_;
+                return *this;
                 }
 
                 II auto
-irqFalling      () 
-                { 
-                EXTI->RTSR1 and_eq compl pinmask_; 
-                EXTI->FTSR1 or_eq pinmask_; 
-                return *this; 
+irqFalling      ()
+                {
+                EXTI->RTSR1 and_eq compl pinmask_;
+                EXTI->FTSR1 or_eq pinmask_;
+                return *this;
                 }
 
                 II auto
-irqBothEdges    () 
-                { 
-                EXTI->FTSR1 or_eq pinmask_; 
-                EXTI->RTSR1 or_eq pinmask_; 
-                return *this; 
+irqBothEdges    ()
+                {
+                EXTI->FTSR1 or_eq pinmask_;
+                EXTI->RTSR1 or_eq pinmask_;
+                return *this;
                 }
 
                 //get which IRQn_Type we belong to
