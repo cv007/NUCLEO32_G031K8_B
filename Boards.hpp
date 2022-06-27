@@ -2,9 +2,7 @@
 #pragma once
 
 #include "MyStm32.hpp"
-
 #include "Gpio.hpp"
-#include "Uart.hpp"
 
 /*=============================================================
     Boards
@@ -14,7 +12,7 @@ struct Boards {
     struct Nucleo32g031 {
 
         //Uart2, TX=PA2,RX=PA3
-        static constexpr Uart::uartT uart{ Uart2_A2A3 };
+        static constexpr uartT uart{ Uart2_A2A3 };
 
         //fixed green led- LD3
         GpioPin led{ GpioPin(PINS::PC6).mode(PINS::OUTPUT).lock().off() };

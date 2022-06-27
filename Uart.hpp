@@ -12,17 +12,6 @@ using namespace UTIL;
 =============================================================*/
 struct Uart : FMT::Print {
 
-                //struct with info about specific uart (only tx/rx pins)
-                using
-uartT           = struct {
-                USART_TypeDef*  uart;
-                PINS::PIN       txPin;
-                PINS::ALTFUNC   txAltFunc;
-                PINS::PIN       rxPin;
-                PINS::ALTFUNC   rxAltFunc;
-                void(*rccEnable)();
-                };
-
 //-------------|
     private:
 //-------------|
@@ -90,8 +79,14 @@ write           (const char c)
 Uart            (uartT u, u32 baud, u8* buffer = 0, u8 bufferSiz = 0)
                 : reg_(*u.uart)
                 {
-                if( u.uart == USART1 ) instances_[0] = this; else instances_[1] = this;
-                u.rccEnable();
+                if( u.uart == USART1 ){
+                    instances_[0] = this;
+                    RCC->APBENR2 or_eq RCC_APBENR2_USART1EN_Msk;
+                    }
+                else {
+                    instances_[1] = this;
+                    RCC->APBENR1 or_eq RCC_APBENR1_USART2EN_Msk;
+                    }
                 //first set default state when tx not enabled (input/pullup)
                 GpioPin(u.txPin).mode(PINS::INPUT).pull(PINS::PULLUP).altFunc(u.txAltFunc);
                 baudReg( baud );

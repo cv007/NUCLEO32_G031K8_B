@@ -42,6 +42,7 @@ using namespace UTIL;
 /*--------------------------------------------------------------
     common includes and inline vars
 --------------------------------------------------------------*/
+#include "Uart.hpp"
 #include "Boards.hpp"
 inline Boards::Nucleo32g031 board;      //everyone can access
 

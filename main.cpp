@@ -269,7 +269,7 @@ main            ()
 #include "Lptim.hpp"
 
 //count pulses on PB1 ( D[3] )
-LptimExtCounter lptimCounter{ LPTIM2_IN1_PB1 };
+LptimExtCounter lptimCounter{ Lptim2_PB1 };
 
 //need something to generate pulses (board does not provide
 //connections to uart2 or led, so will do this instead)

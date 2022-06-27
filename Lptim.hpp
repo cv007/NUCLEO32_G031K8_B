@@ -229,10 +229,8 @@ LptimRepeatDo   (LPTIM_TypeDef* t, void(*isrfunc)(), u16 arrVal)   //(use _ms_lp
     PB5 (lptim1) or PB1 (lptim2) drives lptim counter
     LPTIM1_IN1 = PB5, AF5
     LPTIM2_IN1 = PB1, AF5
+    uses lptimT from our mcu header, which has pin IN1 info
 =============================================================*/
-//limit to available IN1's, and can deduce timer instance from it also
-enum LptimExtCounterInstances { LPTIM1_IN1_PB5, LPTIM2_IN1_PB1 };
-
 struct LptimExtCounter : Lptim {
 
 //-------------|
@@ -276,10 +274,10 @@ count           ()
                 }
 
 
-LptimExtCounter (LptimExtCounterInstances e)
-                : Lptim( e == LPTIM1_IN1_PB5 ? LPTIM1 : LPTIM2 )
+LptimExtCounter (lptimT t)
+                : Lptim( t.lptim )
                 {
-                GpioPin(LPTIM1_IN1_PB5 ? PB5 : PB1).mode(INPUT).pull(PULLDOWN).altFunc(AF5);
+                GpioPin( t.in1 ).mode(INPUT).pull(PULLDOWN).altFunc(AF5);
                 reinit();
                 }
 
