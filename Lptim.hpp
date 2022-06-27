@@ -61,6 +61,27 @@ struct Lptim : RccLptim {
 
                 //vars
                 LPTIM_TypeDef& lptim_;
+                static inline Lptim* instances_[2]; //for isr use
+
+
+                //functions
+
+                //should not get here unless a parent class did not create an isr function
+                //but enabled an irq, so just clear all flags so we can continue,
+                //but no other actions taken
+                virtual void
+isr             (){ irqClear(ALL); }
+
+                //static, so can put this function address in the vector table
+                //(this same function address will end up in both LPTIM1/2 vectors)
+                //when called via hardware/vector table, get appropriate instance pointer
+                //from instances_, then call virtual isr() function
+                static void
+isrAll          ()
+                {
+                auto ptr = irqActive() == LPTIM1_IRQn ? instances_[0] : instances_[1];
+                ptr->isr();
+                }
 
 //-------------|
     public:
@@ -80,6 +101,7 @@ IRQTYPE         {
 Lptim           (LPTIM_TypeDef* t)
                 : lptim_(*t)
                 {
+                if( t == LPTIM1 ) instances_[0] = this; else instances_[1] = this;
                 }
 
                 //functions
@@ -103,9 +125,16 @@ startContinuous (){ on(); lptim_.CR or_eq CNTSTRTbm; return *this;  }
 
                 //IRQTYPE is bitmask value, use as-is
                 auto
-irqClear        (IRQTYPE e) { lptim_.ICR = e; return *this; }
+irqClear        (IRQTYPE e) -> Lptim& { lptim_.ICR = e; return *this; }
                 auto //OFF
-irqOn           (IRQTYPE e){ off(); irqClear(e); lptim_.IER or_eq e; return *this; }
+irqOn           (IRQTYPE e)
+                {
+                off();
+                irqClear(e);
+                irqFunction( &lptim_ == LPTIM1 ? LPTIM1_IRQn : LPTIM2_IRQn, isrAll );
+                lptim_.IER or_eq e;
+                return *this;
+                }
                 auto //OFF
 irqOff          (IRQTYPE e) { off(); lptim_.IER and_eq compl e; return *this; }
                 auto
@@ -152,14 +181,12 @@ struct LptimRepeatDo : Lptim {
 
                 //vars
                 void(*isrFunc_)();    //store isr function to call
-                static inline LptimRepeatDo* instances_[2]; //for isr use, assuming only lptim1 and lptim2
 
-                static void //static so can put in vector table
-isr             () //assuming only lptim1 and lptim2
-                { //get instance needed so we can call into it
-                LptimRepeatDo* lptim = irqActive() == LPTIM1_IRQn ? instances_[0] : instances_[1];
-                lptim->irqClear( lptim->ARRM );
-                if( lptim->isrFunc_ ) lptim->isrFunc_();  //call function, if set
+                void
+isr             () override
+                {
+                irqClear( ARRM );
+                if( isrFunc_ ) isrFunc_();  //call function, if set
                 }
 
 //-------------|
@@ -188,8 +215,6 @@ reinit          (u16 arrVal)                        //reuse previously set funct
 LptimRepeatDo   (LPTIM_TypeDef* t, void(*isrfunc)(), u16 arrVal)   //(use _ms_lptim to convert ms to arr value)
                 : Lptim(t)
                 {
-                if( t == LPTIM1 ) instances_[0] = this; else instances_[1] = this;
-                irqFunction( t == LPTIM1 ? LPTIM1_IRQn : LPTIM2_IRQn, isr );
                 reinit( isrfunc, arrVal );          //set irq function, interval
                 }
 
@@ -216,16 +241,14 @@ struct LptimExtCounter : Lptim {
 
                 //vars
                 volatile u16 pulseCountH_;//upper 16bits (CNT is lower 16bits)
-                static inline LptimExtCounter* instances_[2]; //for isr use, assuming only lptim1 and lptim2
 
                 //functions
 
-                static void //static so can put in vector table
-isr             () //assuming only lptim1 and lptim2
-                { //get instance needed so we can call into it
-                LptimExtCounter* lptim = irqActive() == LPTIM1_IRQn ? instances_[0] : instances_[1];
-                lptim->irqClear( lptim->ARRM );
-                lptim->pulseCountH_++; //upper 16 bits
+                void
+isr             () override
+                {
+                irqClear( ARRM );
+                pulseCountH_++; //upper 16 bits
                 }
 
 //-------------|
@@ -256,15 +279,9 @@ count           ()
 LptimExtCounter (LptimExtCounterInstances e)
                 : Lptim( e == LPTIM1_IN1_PB5 ? LPTIM1 : LPTIM2 )
                 {
-                auto is1 = e == LPTIM1_IN1_PB5;
-                if( is1 ) instances_[0] = this; else instances_[1] = this;
-                PIN pin = is1 ? PB5 : PB1;
-                GpioPin(pin).mode(INPUT).pull(PULLDOWN).altFunc(AF5);
-                irqFunction( is1 ? LPTIM1_IRQn : LPTIM2_IRQn, isr );
+                GpioPin(LPTIM1_IN1_PB5 ? PB5 : PB1).mode(INPUT).pull(PULLDOWN).altFunc(AF5);
                 reinit();
                 }
-
-
 
 };
 
