@@ -269,7 +269,7 @@ main            ()
 #include "Lptim.hpp"
 
 //count pulses on PB1 ( D[3] )
-LptimExtCounter lptimCounter{ LptimExtCounterPB1 };
+LptimExtCounter lptimCounter{ LPTIM2_IN1_PB1 };
 
 //need something to generate pulses (board does not provide
 //connections to uart2 or led, so will do this instead)
@@ -308,11 +308,11 @@ main            ()
                 while( true ) {
                     //             random32 (hex)  irq count (dec) pulse counts
                     //Hello World [00000000][         0][         0]
-                    uart    << FG ROYAL_BLUE "Hello World ["  FG LIGHT_GREEN
+                    uart    << FG ROYAL_BLUE "random32() ["  FG LIGHT_GREEN
                             << Hexpad(8) << random32()
-                            << FG ROYAL_BLUE "]["
+                            << FG ROYAL_BLUE "] lptimIrqCount ["
                             << FG ORANGE << setwf(10, ' ') << dec << lptimIrqCount
-                            << FG ROYAL_BLUE "]["
+                            << FG ROYAL_BLUE "] lptimCounter.count() ["
                             << FG YELLOW << setw(10) << lptimCounter.count()
                             << FG ROYAL_BLUE "]" << endl;
                     delayMS( 10 );
